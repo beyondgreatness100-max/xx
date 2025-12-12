@@ -1,841 +1,335 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#6d28d9">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Momentum MAX — 3D Habit Ecosystem</title>
-    
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-    
-    <script src="https://unpkg.com/lucide@latest"></script>
+<script type="text/babel">
+        const { useState, useEffect, useCallback, createContext, useContext, useRef } = React;
 
-    <style>
-        /* --- 3D ENGINE & CORE CSS --- */
-        :root {
-            --primary: #7c3aed;
-            --primary-dark: #6d28d9;
-            --accent: #f472b6;
-            --glass: rgba(255, 255, 255, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.5);
-            --shadow-3d: 0 20px 50px -12px rgba(0,0,0,0.15);
-            --depth: 0px;
-        }
-
-        * {
-            font-family: 'Outfit', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-            box-sizing: border-box;
-            touch-action: manipulation;
-            user-select: none;
-        }
-
-        [dir="rtl"] * { font-family: 'Tajawal', sans-serif; }
-
-        body {
-            background-color: #f0f2f5;
-            overflow-x: hidden;
-            overscroll-behavior-y: none;
-            perspective: 1000px; /* Enables 3D space */
-        }
-
-        /* --- 3D CARD SYSTEM --- */
-        .card-3d-wrapper {
-            perspective: 1000px;
-            transform-style: preserve-3d;
-        }
-
-        .card-3d {
-            transition: transform 0.1s ease-out, box-shadow 0.3s ease;
-            transform-style: preserve-3d;
-            background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.6));
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            box-shadow: var(--shadow-3d);
-        }
-
-        .card-3d:active {
-            transform: scale(0.96) rotateX(2deg);
-        }
-
-        /* Float Animation */
-        .float-layer {
-            transform: translateZ(20px); /* Lifts content off the card */
-            pointer-events: none;
-        }
-        
-        /* --- HOLOGRAPHIC SHIMMER --- */
-        .holo-overlay {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.4) 30%, transparent 40%);
-            background-size: 200% 100%;
-            animation: shimmer 4s infinite linear;
-            pointer-events: none;
-            mix-blend-mode: overlay;
-        }
-
-        /* --- ANIMATIONS --- */
-        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-        @keyframes float-y { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 0.5; } 100% { transform: scale(1.3); opacity: 0; } }
-        @keyframes confetti-pop { 0% { transform: scale(0); opacity: 0; } 50% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
-
-        /* --- UI UTILITIES --- */
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.65);
-            backdrop-filter: blur(16px);
-            border-top: 1px solid rgba(255,255,255,0.8);
-            border-bottom: 1px solid rgba(255,255,255,0.4);
-        }
-
-        .text-glow { text-shadow: 0 0 20px rgba(124, 58, 237, 0.3); }
-        
-        .progress-ring-circle {
-            transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* --- BACKGROUND BLOBS --- */
-        .blob {
-            position: fixed;
-            filter: blur(80px);
-            z-index: -1;
-            opacity: 0.6;
-            animation: float-y 8s ease-in-out infinite;
-        }
-        .blob-1 { top: -10%; right: -10%; width: 300px; height: 300px; background: #c084fc; animation-delay: 0s; }
-        .blob-2 { bottom: -10%; left: -10%; width: 250px; height: 250px; background: #60a5fa; animation-delay: 2s; }
-        .blob-3 { top: 40%; left: 30%; width: 200px; height: 200px; background: #f472b6; opacity: 0.4; animation-delay: 4s; }
-
-        .achievement-locked { filter: grayscale(1) opacity(0.5); }
-        .achievement-unlocked { animation: confetti-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
-    <script type="text/babel">
-        const { useState, useEffect, useCallback, useMemo, createContext, useContext, useRef } = React;
-
-        // --- 1. PREMIUM ASSETS & DATA ---
-        
-        // Haptic Engine
-        const triggerHaptic = (type = 'light') => {
-            if (typeof navigator !== 'undefined' && navigator.vibrate) {
-                if (type === 'light') navigator.vibrate(5);
-                if (type === 'medium') navigator.vibrate(15);
-                if (type === 'success') navigator.vibrate([10, 30, 10]);
-                if (type === 'error') navigator.vibrate([50, 50]);
-            }
-        };
-
-        // Full Translations (Original + New)
-        const translations = {
-            en: {
-                appName: "Momentum MAX",
-                welcomeTitle: "Welcome Back,",
-                goodMorning: "Good Morning",
-                goodAfternoon: "Good Afternoon",
-                goodEvening: "Good Evening",
-                tryProFree: "Try Pro FREE for 7 days",
-                unlimitedHabits: "Unlimited habits",
-                ninetyDayAnalytics: "90-day analytics",
-                startFreeTrial: "Start 7-Day FREE Trial",
-                continueFreePlan: "Continue with Free Plan",
-                hey: "Hey",
-                level: "Lv.",
-                xp: "XP",
-                pro: "Pro",
-                habits: "Habits",
-                analytics: "Analytics",
-                rewards: "Rewards",
-                settings: "Settings",
-                todaysProgress: "Today's Focus",
-                habitsCompleted: "Completed",
-                templates: "Templates",
-                custom: "Custom",
-                freeHabits: "Free Habits",
-                done: "Done",
-                dayOverview: "Day Overview",
-                totalCompletions: "Total Completions",
-                bestStreak: "Best Streak",
-                perfectDays: "Perfect Days",
-                currentLevel: "Current Level",
-                proInsights: "AI Insights",
-                habitHeatmap: "Activity Heatmap",
-                upgradeToPro: "Upgrade to Pro",
-                unlockPotential: "Unlock full potential",
-                trialActive: "Trial Active",
-                daysLeft: "days left",
-                friends: "Friends",
-                addFriend: "Add Friend",
-                yourId: "Your ID",
-                copyId: "Copy ID",
-                viewProfile: "View Profile",
-                dailyMissions: "Daily Missions",
-                weeklyMissions: "Weekly Missions",
-                claimReward: "Claim",
-                claimed: "Claimed",
-                levelRewards: "Level Rewards",
-                achievementsUnlocked: "Achievements",
-                theme: "Theme",
-                language: "Language",
-                english: "English",
-                arabic: "العربية",
-                newHabit: "New Habit",
-                habitName: "Habit Name",
-                dailyGoal: "Daily Goal",
-                createHabit: "Create Habit",
-                setReminder: "Set Reminder",
-                reminderTime: "Time",
-                reminderDays: "Days",
-                deleteHabit: "Delete Habit",
-                resetAllData: "Reset All Data",
-                maxSubscription: "Momentum MAX",
-                upgradeToMax: "Upgrade to MAX",
-                cancelAnytime: "Cancel anytime",
-                aiCoach: "AI Coach",
-                waterReminder: "Hydration Check 💧",
-                waterBody: "Stay hydrated to keep your momentum!",
-                missionComplete1: "Complete 1 habit",
-                missionComplete3: "Complete 3 habits",
-                missionCompleteAll: "Complete all habits",
-                missionStreak3: "Reach 3-day streak",
-                missionStreak7: "Reach 7-day streak",
-                missionPerfectDay: "Perfect day (100%)",
-                missionWeek5Days: "Complete 5 days this week",
-                feat_unlimitedHabits: "Unlimited Habits",
-                feat_advancedAnalytics: "AI Analytics",
-                feat_allThemes: "3D Themes",
-                feat_cloudBackup: "Cloud Sync",
-                feat_focusMode: "Focus Mode",
-                feat_streakProtection: "Streak Freeze"
+        // --- 1. AUDIO ENGINE (Synthesized Sounds - No Downloads Needed) ---
+        const SoundEngine = {
+            ctx: null,
+            init: () => {
+                if (!SoundEngine.ctx) {
+                    SoundEngine.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
             },
-            ar: {
-                appName: "مومنتم ماكس",
-                welcomeTitle: "مرحباً بعودتك،",
-                goodMorning: "صباح الخير",
-                goodAfternoon: "مساء الخير",
-                goodEvening: "مساء الخير",
-                tryProFree: "جرب برو مجاناً 7 أيام",
-                unlimitedHabits: "عادات غير محدودة",
-                ninetyDayAnalytics: "تحليلات 90 يوم",
-                startFreeTrial: "ابدأ تجربة مجانية",
-                continueFreePlan: "المتابعة مجاناً",
-                hey: "مرحباً",
-                level: "مستوى",
-                xp: "نقاط",
-                pro: "برو",
-                habits: "عادات",
-                analytics: "تحليلات",
-                rewards: "مكافآت",
-                settings: "إعدادات",
-                todaysProgress: "تركيز اليوم",
-                habitsCompleted: "مكتملة",
-                templates: "قوالب",
-                custom: "مخصص",
-                freeHabits: "عادات مجانية",
-                done: "تم",
-                dayOverview: "نظرة عامة",
-                totalCompletions: "الإنجازات",
-                bestStreak: "أفضل سلسلة",
-                perfectDays: "أيام مثالية",
-                currentLevel: "المستوى الحالي",
-                proInsights: "رؤى الذكاء الاصطناعي",
-                habitHeatmap: "خريطة النشاط",
-                upgradeToPro: "الترقية إلى برو",
-                unlockPotential: "أطلق قدراتك",
-                trialActive: "تجربة نشطة",
-                daysLeft: "أيام",
-                friends: "أصدقاء",
-                addFriend: "إضافة صديق",
-                yourId: "معرفك",
-                copyId: "نسخ",
-                viewProfile: "الملف الشخصي",
-                dailyMissions: "مهام يومية",
-                weeklyMissions: "مهام أسبوعية",
-                claimReward: "استلم",
-                claimed: "تم الاستلام",
-                levelRewards: "مكافآت المستوى",
-                achievementsUnlocked: "الإنجازات",
-                theme: "السمة",
-                language: "اللغة",
-                english: "English",
-                arabic: "العربية",
-                newHabit: "عادة جديدة",
-                habitName: "اسم العادة",
-                dailyGoal: "الهدف",
-                createHabit: "إنشاء",
-                setReminder: "تذكير",
-                reminderTime: "الوقت",
-                reminderDays: "الأيام",
-                deleteHabit: "حذف العادة",
-                resetAllData: "إعادة تعيين",
-                maxSubscription: "مومنتم ماكس",
-                upgradeToMax: "ترقية للماكس",
-                cancelAnytime: "إلغاء في أي وقت",
-                aiCoach: "المدرب الذكي",
-                waterReminder: "تذكير شرب الماء 💧",
-                waterBody: "حافظ على رطوبتك للحفاظ على نشاطك!",
-                missionComplete1: "أكمل عادة واحدة",
-                missionComplete3: "أكمل 3 عادات",
-                missionCompleteAll: "أكمل جميع العادات",
-                missionStreak3: "حقق سلسلة 3 أيام",
-                missionStreak7: "حقق سلسلة 7 أيام",
-                missionPerfectDay: "يوم مثالي (100%)",
-                missionWeek5Days: "أكمل 5 أيام هذا الأسبوع",
-                feat_unlimitedHabits: "عادات غير محدودة",
-                feat_advancedAnalytics: "تحليلات ذكية",
-                feat_allThemes: "ثيمات ثلاثية الأبعاد",
-                feat_cloudBackup: "مزامنة سحابية",
-                feat_focusMode: "وضع التركيز",
-                feat_streakProtection: "تجميد السلسلة"
-            }
-        };
+            play: (type) => {
+                SoundEngine.init();
+                const ctx = SoundEngine.ctx;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
 
-        // Mission Definitions
-        const DAILY_MISSIONS = [
-            { id: 'complete1', key: 'missionComplete1', xp: 10, check: (stats) => stats.todayCompletions >= 1 },
-            { id: 'complete3', key: 'missionComplete3', xp: 25, check: (stats) => stats.todayCompletions >= 3 },
-            { id: 'completeAll', key: 'missionCompleteAll', xp: 50, check: (stats) => stats.completionRate === 100 },
-            { id: 'perfectDay', key: 'missionPerfectDay', xp: 75, check: (stats) => stats.completionRate === 100 && stats.habitsCount >= 3 },
-        ];
-        
-        const WEEKLY_MISSIONS = [
-            { id: 'week5days', key: 'missionWeek5Days', xp: 100, check: (stats) => stats.daysActiveThisWeek >= 5 },
-            { id: 'streak7', key: 'missionStreak7', xp: 150, check: (stats) => stats.longestStreak >= 7 },
-        ];
-
-        // Theme Definitions
-        const THEMES = {
-            purple: { name: 'Nebula', bg: 'from-violet-600 via-purple-600 to-indigo-600', accent: 'violet' },
-            ocean: { name: 'Ocean', bg: 'from-cyan-500 via-blue-600 to-indigo-600', accent: 'cyan' },
-            sunset: { name: 'Sunset', bg: 'from-orange-500 via-rose-500 to-pink-600', accent: 'rose' },
-            midnight: { name: 'Midnight', bg: 'from-slate-900 via-purple-900 to-slate-800', accent: 'slate' },
-            gold: { name: 'Midas', bg: 'from-amber-400 via-yellow-500 to-orange-500', accent: 'amber' }
-        };
-        // --- 2. CORE ENGINES ---
-
-        const LanguageContext = createContext();
-        const useLanguage = () => useContext(LanguageContext);
-
-        const storage = {
-            get: (key, defaultValue) => { 
-                try { 
-                    const item = localStorage.getItem(key); 
-                    return item ? JSON.parse(item) : defaultValue; 
-                } catch { return defaultValue; } 
-            },
-            set: (key, value) => { 
-                try { localStorage.setItem(key, JSON.stringify(value)); } catch {} 
-            }
-        };
-
-        const NotificationHelper = {
-            isSupported: () => typeof Notification !== 'undefined',
-            async requestPermission() {
-                if (!this.isSupported()) return false;
-                if (Notification.permission === 'granted') return true;
-                const permission = await Notification.requestPermission();
-                return permission === 'granted';
-            },
-            send(title, body) {
-                if (this.isSupported() && Notification.permission === 'granted') {
-                    new Notification(title, { body, icon: 'https://cdn-icons-png.flaticon.com/512/2917/2917995.png' });
+                const now = ctx.currentTime;
+                
+                if (type === 'success') {
+                    // Satisfying "Ding" (Sine wave, high pitch)
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(500, now);
+                    osc.frequency.exponentialRampToValueAtTime(1000, now + 0.1);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                    osc.start(now);
+                    osc.stop(now + 0.5);
+                } else if (type === 'levelup') {
+                    // Celebration Chord
+                    [440, 554, 659].forEach((freq, i) => {
+                        const osc2 = ctx.createOscillator();
+                        const gain2 = ctx.createGain();
+                        osc2.connect(gain2);
+                        gain2.connect(ctx.destination);
+                        osc2.type = 'triangle';
+                        osc2.frequency.setValueAtTime(freq, now + (i*0.1));
+                        gain2.gain.setValueAtTime(0.2, now + (i*0.1));
+                        gain2.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
+                        osc2.start(now + (i*0.1));
+                        osc2.stop(now + 1.5);
+                    });
+                } else if (type === 'click') {
+                    // Soft Click
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(300, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
                 }
             }
         };
 
-        // Smart AI Logic for Coaching
-        const AiEngine = {
-            getInsight: (habits) => {
-                const hour = new Date().getHours();
-                const today = new Date().toISOString().split('T')[0];
-                const completed = habits.filter(h => (h.progress?.[today] || 0) >= h.goal).length;
-                const total = habits.length;
-                const rate = total ? completed / total : 0;
-
-                // Time-based AI responses
-                if (hour < 11) return completed === 0 ? "The secret to getting ahead is getting started." : "Great morning momentum! Keep it up.";
-                if (hour < 17) return rate < 0.5 ? "Don't let the afternoon slump win. One more habit!" : "You are crushing it today!";
-                return rate === 1 ? "Perfect day. Rest up and repeat tomorrow." : "Finish strong. Every rep counts.";
+        // --- DATA & CONFIG ---
+        const translations = {
+            en: {
+                appName: "Momentum MAX", welcome: "Good Morning", today: "Today's Focus", 
+                habits: "Habits", newHabit: "New Habit", create: "Create", 
+                upgrade: "Upgrade to Pro", unlock: "Unlock full potential", 
+                friends: "Friends", add: "Add Friend", yourId: "Your ID", 
+                copy: "Copy", freeHabits: "No habits yet. Start now!",
+                aiCoach: "AI Coach", water: "Hydration Check 💧",
+                levelUp: "LEVEL UP!", level: "Level", continue: "Continue",
+                xp: "XP"
+            },
+            ar: {
+                appName: "مومنتم ماكس", welcome: "صباح الخير", today: "تركيز اليوم",
+                habits: "العادات", newHabit: "عادة جديدة", create: "إنشاء",
+                upgrade: "ترقية لبرو", unlock: "أطلق قدراتك",
+                friends: "الأصدقاء", add: "إضافة", yourId: "معرفك",
+                copy: "نسخ", freeHabits: "لا توجد عادات. ابدأ الآن!",
+                aiCoach: "المدرب الذكي", water: "تذكير شرب الماء 💧",
+                levelUp: "مستوى جديد!", level: "مستوى", continue: "متابعة",
+                xp: "نقاط"
             }
         };
 
-        // --- 3. UI COMPONENTS (3D & ANIMATION) ---
+        const LanguageContext = createContext();
 
+        // --- HELPERS ---
+        const storage = {
+            get: (key, def) => { try { return JSON.parse(localStorage.getItem(key)) || def; } catch { return def; } },
+            set: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+        };
+
+        const triggerHaptic = (type) => {
+            if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(type === 'success' ? [10, 30, 10] : 10);
+            SoundEngine.play(type === 'success' ? 'success' : 'click'); // Integrate Sound here
+        };
+
+        // --- COMPONENTS ---
         const Confetti = ({ active }) => {
             if (!active) return null;
-            const colors = ['#8b5cf6', '#d946ef', '#f59e0b', '#10b981', '#3b82f6'];
-            return (<div className="fixed inset-0 pointer-events-none z-50">{Array.from({ length: 50 }).map((_, i) => (
-                <div key={i} className="confetti" style={{ 
-                    left: `${Math.random() * 100}%`, 
-                    backgroundColor: colors[Math.floor(Math.random() * colors.length)], 
-                    animation: `confetti-fall ${2 + Math.random() * 2}s linear forwards`,
-                    animationDelay: `${Math.random() * 0.5}s`
-                }} />
-            ))}</div>);
+            return <div className="fixed inset-0 pointer-events-none z-50">{[...Array(40)].map((_, i) => <div key={i} className="confetti" style={{left: Math.random()*100+'%', background: ['#8b5cf6', '#f472b6', '#34d399'][Math.floor(Math.random()*3)], animation: `confetti ${2+Math.random()}s linear`}} />)}</div>;
         };
 
-        const CircularProgress = ({ progress, size = 120, strokeWidth = 10, children, color = "#8b5cf6" }) => {
-            const radius = (size - strokeWidth) / 2;
-            const circumference = radius * 2 * Math.PI;
-            const offset = circumference - (progress / 100) * circumference;
-            return (
-                <div className="relative" style={{ width: size, height: size }}>
-                    <svg width={size} height={size} className="transform -rotate-90 drop-shadow-xl">
-                        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={strokeWidth} />
-                        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} className="progress-ring-circle" />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">{children}</div>
-                </div>
-            );
-        };
-
-        // THE 3D TILT CARD COMPONENT
-        const Card3D = ({ children, className = "", onClick }) => {
-            const cardRef = useRef(null);
-
+        const Card3D = ({ children, onClick, className = "" }) => {
+            const ref = useRef(null);
             const handleMove = (e) => {
-                if (!cardRef.current || window.innerWidth < 768) return; // Disable tilt on mobile for performance
-                const card = cardRef.current;
-                const rect = card.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
-                
-                // Calculate rotation based on mouse position
-                const rotateX = ((y - centerY) / centerY) * -10; // Max 10deg tilt
-                const rotateY = ((x - centerX) / centerX) * 10;
-
-                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+                if(!ref.current || window.innerWidth < 768) return;
+                const rect = ref.current.getBoundingClientRect();
+                const x = (e.clientX - rect.left - rect.width/2) / 20;
+                const y = (e.clientY - rect.top - rect.height/2) / -20;
+                ref.current.style.transform = `perspective(1000px) rotateX(${y}deg) rotateY(${x}deg)`;
             };
-
-            const handleLeave = () => {
-                if (!cardRef.current) return;
-                cardRef.current.style.transform = `perspective(1000px) rotateX(0) rotateY(0) scale3d(1, 1, 1)`;
-            };
-
             return (
                 <div className="card-3d-wrapper py-2">
-                    <div 
-                        ref={cardRef}
-                        className={`card-3d relative overflow-hidden rounded-3xl cursor-pointer ${className}`}
-                        onMouseMove={handleMove}
-                        onMouseLeave={handleLeave}
-                        onClick={(e) => { triggerHaptic('light'); onClick && onClick(e); }}
-                    >
-                        <div className="holo-overlay"></div>
-                        <div className="float-layer relative z-10">
-                            {children}
-                        </div>
+                    <div ref={ref} className={`card-3d relative overflow-hidden rounded-3xl cursor-pointer ${className}`} 
+                         onMouseMove={handleMove} onMouseLeave={(e) => e.currentTarget.style.transform = 'none'} onClick={onClick}>
+                        {children}
                     </div>
                 </div>
             );
         };
-        function MomentumApp() {
-            const { t } = useLanguage(); 
-            // Wrapper to safely get translations
-            const getText = (key) => translations[lang]?.[key] || key;
 
-            const [lang, setLang] = useState(() => storage.get('momentum_lang', 'en'));
+        // --- MAIN APP ---
+        function App() {
+            const [lang, setLang] = useState(() => storage.get('lang', 'en'));
+            const t = translations[lang];
             const isRTL = lang === 'ar';
             
-            // --- STATE MANAGEMENT ---
-            const [user, setUser] = useState(() => storage.get('momentum_user', { 
-                id: 'MOM' + Math.floor(Math.random() * 10000).toString().padStart(4, '0'),
-                name: 'Champion', 
-                avatar: '🦁', 
-                level: 1, 
-                xp: 0, 
-                theme: 'purple' 
+            const [user, setUser] = useState(() => storage.get('user', { 
+                id: 'MOM'+Math.floor(Math.random()*10000), name: 'Champion', avatar: '🦁', level: 1, xp: 0, maxXp: 100 
             }));
-            const [habits, setHabits] = useState(() => storage.get('momentum_habits', []));
-            const [friends, setFriends] = useState(() => storage.get('momentum_friends', []));
-            const [activeTab, setActiveTab] = useState('habits');
+            const [habits, setHabits] = useState(() => storage.get('habits', []));
+            const [friends, setFriends] = useState(() => storage.get('friends', []));
             const [showConfetti, setShowConfetti] = useState(false);
-            const [isPro, setIsPro] = useState(() => storage.get('momentum_pro', false));
-            const [aiMessage, setAiMessage] = useState("");
+            const [activeTab, setActiveTab] = useState('habits');
+            const [modal, setModal] = useState(null); // 'paywall', 'addHabit', 'friends', 'levelUp'
 
-            // Modals State
-            const [showPaywall, setShowPaywall] = useState(false);
-            const [showAddHabit, setShowAddHabit] = useState(false);
-            const [showFriends, setShowFriends] = useState(false);
-            const [friendInput, setFriendInput] = useState('');
+            useEffect(() => { storage.set('habits', habits); storage.set('user', user); storage.set('friends', friends); storage.set('lang', lang); }, [habits, user, friends, lang]);
 
-            // --- EFFECTS ---
-            useEffect(() => storage.set('momentum_lang', lang), [lang]);
-            useEffect(() => storage.set('momentum_user', user), [user]);
-            useEffect(() => storage.set('momentum_habits', habits), [habits]);
-            useEffect(() => storage.set('momentum_friends', friends), [friends]);
-            useEffect(() => storage.set('momentum_pro', isPro), [isPro]);
-
-            // AI & Water Monitor Effect
-            useEffect(() => {
-                // 1. Get AI Insight
-                setAiMessage(AiEngine.getInsight(habits));
-
-                // 2. Water Reminder (Every 3 hours check)
-                const waterInterval = setInterval(() => {
-                    const hour = new Date().getHours();
-                    // Send notification if enabled, between 8 AM and 10 PM
-                    if (hour > 8 && hour < 22) { 
-                        NotificationHelper.send(translations[lang].waterReminder, translations[lang].waterBody);
-                    }
-                }, 3 * 60 * 60 * 1000); 
-
-                return () => clearInterval(waterInterval);
-            }, [habits, lang]);
-
-            // --- APP LOGIC ---
-
+            // Logic
             const today = new Date().toISOString().split('T')[0];
-            const completedCount = habits.filter(h => (h.progress?.[today] || 0) >= h.goal).length;
-            const progressPct = habits.length ? Math.round((completedCount / habits.length) * 100) : 0;
+            const progress = habits.length ? Math.round((habits.filter(h => (h.done?.[today]||0) >= h.goal).length / habits.length) * 100) : 0;
+            const aiMsg = progress === 100 ? "Perfect Day!" : progress > 50 ? "Keep Pushing!" : "Start Small.";
 
-            const incrementHabit = (id) => {
-                const habit = habits.find(h => h.id === id);
-                const current = habit.progress?.[today] || 0;
-                
-                if (current >= habit.goal) return; // Already done
+            const addHabit = (name) => {
+                if(!name) return;
+                setHabits([...habits, { id: Date.now(), name, goal: 1, done: {}, emoji: '⚡', streak: 0 }]);
+                setModal(null); triggerHaptic('success');
+            };
 
-                triggerHaptic('medium'); 
+            const checkLevelUp = (currentXp, currentLevel) => {
+                const requiredXp = currentLevel * 100;
+                if (currentXp >= requiredXp) {
+                    const leftoverXp = currentXp - requiredXp;
+                    setUser(u => ({ ...u, xp: leftoverXp, level: u.level + 1, maxXp: (u.level + 1) * 100 }));
+                    setModal('levelUp');
+                    SoundEngine.play('levelup');
+                    setShowConfetti(true);
+                    setTimeout(() => setShowConfetti(false), 4000);
+                } else {
+                    setUser(u => ({ ...u, xp: currentXp }));
+                }
+            };
 
-                const newHabits = habits.map(h => {
-                    if (h.id === id) {
-                        const next = (h.progress?.[today] || 0) + 1;
-                        if (next >= h.goal) {
-                            setShowConfetti(true);
-                            setTimeout(() => setShowConfetti(false), 2500);
-                            triggerHaptic('success');
+            const toggleHabit = (id) => {
+                triggerHaptic('success');
+                setHabits(habits.map(h => {
+                    if(h.id === id) {
+                        const currentVal = (h.done[today] || 0);
+                        if (currentVal >= h.goal) return h; // Already done
+
+                        const val = currentVal + 1;
+                        
+                        // XP Logic: 25 XP per habit
+                        if (val >= h.goal) { 
+                            checkLevelUp(user.xp + 25, user.level);
+                            setShowConfetti(true); 
+                            setTimeout(() => setShowConfetti(false), 2000); 
                         }
-                        return { 
-                            ...h, 
-                            progress: { ...h.progress, [today]: next },
-                            streak: next >= h.goal ? (h.streak || 0) + 1 : h.streak 
-                        };
+
+                        return { ...h, done: { ...h.done, [today]: val }, streak: val >= h.goal ? h.streak + 1 : h.streak };
                     }
                     return h;
-                });
-                setHabits(newHabits);
-                
-                // Add XP logic could go here
-                if (Math.random() > 0.7) setUser(u => ({ ...u, xp: u.xp + 10 }));
+                }));
             };
 
-            const addNewHabit = (name, category) => {
-                const newHabit = {
-                    id: Date.now(),
-                    name,
-                    category,
-                    emoji: '⚡', // Default emoji
-                    color: 'from-violet-500 to-fuchsia-500',
-                    goal: 1,
-                    streak: 0,
-                    progress: {}
-                };
-                setHabits([...habits, newHabit]);
-                setShowAddHabit(false);
+            const addFriend = (id) => {
+                if(!id || id === user.id || friends.find(f => f.id === id)) return;
+                setFriends([...friends, { id, name: 'Friend '+id.slice(-4), avatar: '🦊', level: Math.floor(Math.random()*10)+1 }]);
                 triggerHaptic('success');
             };
-
-            // --- FIXED FRIEND SYSTEM (Deterministic) ---
-            const handleAddFriend = () => {
-                const id = friendInput.trim().toUpperCase();
-                
-                if (!id) return;
-                if (id === user.id) { alert("Cannot add yourself"); return; }
-                if (friends.find(f => f.id === id)) { alert("Already added"); return; }
-
-                // Deterministic Profile Generation based on ID string
-                // This ensures "FRIEND123" always results in the same Name/Avatar
-                const charCode = id.charCodeAt(id.length - 1) || 0;
-                const avatars = ['🦊', '🐯', '🐸', '🐨', '🦄', '🐲', '🦁', '🐼'];
-                const names = ['Alex', 'Jordan', 'Taylor', 'Casey', 'Riley', 'Morgan', 'Jamie', 'Quinn'];
-                
-                const mockFriend = {
-                    id: id,
-                    name: `${names[charCode % names.length]}`,
-                    avatar: avatars[charCode % avatars.length],
-                    level: (charCode % 50) + 1,
-                    streak: (charCode % 20) + 1
-                };
-
-                setFriends([...friends, mockFriend]);
-                setFriendInput('');
-                triggerHaptic('success');
-            };
-
-            const removeFriend = (id) => {
-                setFriends(friends.filter(f => f.id !== id));
-                triggerHaptic('medium');
-            };
-
-            const getGreeting = () => {
-                const hour = new Date().getHours();
-                if (hour < 12) return translations[lang].goodMorning;
-                if (hour < 18) return translations[lang].goodAfternoon;
-                return translations[lang].goodEvening;
-            };
-
-            // --- RENDER HELPERS ---
-            
-            const renderHeader = () => (
-                <header className="px-6 pt-12 pb-6 sticky top-0 z-30 transition-all duration-300">
-                    <div className="flex justify-between items-center mb-6">
-                        <div className="flex items-center gap-4">
-                            <div className="relative">
-                                <div className="w-14 h-14 rounded-2xl bg-white/80 backdrop-blur shadow-lg flex items-center justify-center text-3xl animate-pop border border-white/60">
-                                    {user.avatar}
-                                </div>
-                                <div className="absolute -bottom-1 -right-1 bg-black text-white text-[10px] font-bold px-1.5 rounded-md border border-white">
-                                    {user.level}
-                                </div>
-                            </div>
-                            <div>
-                                <h1 className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">{getGreeting()}</h1>
-                                <h2 className="text-2xl font-black text-gray-800 dark:text-white leading-none tracking-tight">{user.name}</h2>
-                            </div>
-                        </div>
-                        <div className="flex gap-3">
-                             <button onClick={() => { triggerHaptic(); setLang(lang === 'en' ? 'ar' : 'en'); }} className="w-12 h-12 rounded-2xl bg-white/80 shadow-sm flex items-center justify-center text-2xl btn-press border border-white/50">{lang === 'en' ? '🇸🇦' : '🇺🇸'}</button>
-                             <button onClick={() => { triggerHaptic(); setShowFriends(true); }} className="w-12 h-12 rounded-2xl bg-white/80 shadow-sm flex items-center justify-center text-2xl btn-press relative border border-white/50">
-                                👥
-                                {friends.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center border border-white shadow-sm">{friends.length}</span>}
-                             </button>
-                        </div>
-                    </div>
-
-                    {/* AI Insight Bubble (3D Style) */}
-                    <div className="glass-panel rounded-2xl p-4 flex gap-4 items-center animate-slide-up shadow-sm">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xl text-white shadow-lg">
-                            🤖
-                        </div>
-                        <div className="flex-1">
-                            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-0.5">{translations[lang].aiCoach}</p>
-                            <p className="text-sm font-semibold text-gray-700 leading-tight">{aiMessage}</p>
-                        </div>
-                    </div>
-                </header>
-            );
-            // ... inside MomentumApp ...
 
             return (
-                <LanguageContext.Provider value={{ t: translations[lang], lang, setLang }}>
-                    <div dir={isRTL ? 'rtl' : 'ltr'} className="min-h-screen pb-32 relative overflow-hidden text-slate-800">
+                <LanguageContext.Provider value={{ t, lang }}>
+                    <div dir={isRTL ? 'rtl' : 'ltr'} className="min-h-screen pb-32 text-slate-800 relative select-none">
                         <Confetti active={showConfetti} />
+                        <div className="blob blob-1"></div><div className="blob blob-2"></div>
 
-                        {/* Background Ambient Blobs */}
-                        <div className="blob blob-1"></div>
-                        <div className="blob blob-2"></div>
-                        <div className="blob blob-3"></div>
-
-                        {renderHeader()}
-
-                        <main className="px-6 space-y-8 animate-enter">
-                            {/* Hero Dashboard (3D) */}
-                            <Card3D className="bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white p-6">
-                                <div className="flex justify-between items-center mb-6">
-                                    <div>
-                                        <p className="text-white/80 font-bold text-xs uppercase tracking-widest mb-1">{translations[lang].todaysProgress}</p>
-                                        <h3 className="text-4xl font-black text-white text-glow">{progressPct}%</h3>
+                        {/* Header */}
+                        <header className="px-6 pt-12 pb-6 sticky top-0 z-30 transition-all">
+                            <div className="flex justify-between items-center mb-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="relative">
+                                        <div className="w-14 h-14 rounded-2xl bg-white/80 shadow-lg flex items-center justify-center text-3xl border border-white/60">{user.avatar}</div>
+                                        <div className="absolute -bottom-1 -right-1 bg-black text-white text-[10px] font-bold px-1.5 rounded-md border border-white">{user.level}</div>
                                     </div>
-                                    <CircularProgress progress={progressPct} size={70} strokeWidth={8} color="#fff">
-                                        <span className="text-2xl animate-pulse">🔥</span>
-                                    </CircularProgress>
+                                    <div>
+                                        <h1 className="text-gray-500 text-xs font-bold uppercase tracking-widest">{t.welcome}</h1>
+                                        <h2 className="text-2xl font-black">{user.name}</h2>
+                                    </div>
                                 </div>
-                                <div className="w-full bg-black/20 h-4 rounded-full overflow-hidden backdrop-blur-sm border border-white/10">
-                                    <div className="h-full bg-white shadow-[0_0_20px_rgba(255,255,255,0.5)] transition-all duration-1000 ease-out" style={{ width: `${progressPct}%` }} />
-                                </div>
-                            </Card3D>
-
-                            {/* Habits Grid */}
-                            <div>
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="font-bold text-xl text-slate-800 tracking-tight">{translations[lang].habits}</h3>
-                                    <button onClick={() => { triggerHaptic(); setShowAddHabit(true); }} className="text-violet-600 font-bold text-sm bg-white/50 backdrop-blur px-4 py-2 rounded-full shadow-sm border border-white/50 btn-press">
-                                        + {translations[lang].newHabit}
+                                <div className="flex gap-3">
+                                    <button onClick={() => {triggerHaptic('click'); setLang(lang==='en'?'ar':'en')}} className="w-12 h-12 rounded-2xl bg-white/80 shadow-sm flex items-center justify-center text-2xl">{lang==='en'?'🇸🇦':'🇺🇸'}</button>
+                                    <button onClick={() => {triggerHaptic('click'); setModal('friends')}} className="w-12 h-12 rounded-2xl bg-white/80 shadow-sm flex items-center justify-center text-2xl relative">
+                                        👥 {friends.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">{friends.length}</span>}
                                     </button>
                                 </div>
+                            </div>
+                            
+                            {/* XP BAR */}
+                            <div className="mb-4 px-1">
+                                <div className="flex justify-between text-xs font-bold text-gray-500 mb-1">
+                                    <span>{t.xp} {user.xp} / {user.level * 100}</span>
+                                    <span>{t.level} {user.level + 1}</span>
+                                </div>
+                                <div className="w-full bg-white/50 h-2 rounded-full overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500" style={{width: `${(user.xp / (user.level * 100)) * 100}%`}}></div>
+                                </div>
+                            </div>
+                            
+                            {/* AI Badge */}
+                            <div className="bg-white/60 backdrop-blur rounded-2xl p-4 flex gap-4 items-center shadow-sm">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xl text-white">🤖</div>
+                                <div><p className="text-[10px] font-bold text-indigo-500 uppercase">{t.aiCoach}</p><p className="text-sm font-bold">{aiMsg}</p></div>
+                            </div>
+                        </header>
 
+                        {/* Main Content */}
+                        <main className="px-6 space-y-6">
+                            {/* Hero */}
+                            <Card3D className="bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white p-6">
+                                <div className="flex justify-between items-center mb-6">
+                                    <div><p className="text-white/80 font-bold text-xs uppercase">{t.today}</p><h3 className="text-4xl font-black">{progress}%</h3></div>
+                                    <div className="text-4xl">🔥</div>
+                                </div>
+                                <div className="w-full bg-black/20 h-3 rounded-full overflow-hidden"><div className="h-full bg-white transition-all duration-1000" style={{width: `${progress}%`}} /></div>
+                            </Card3D>
+
+                            {/* Habits */}
+                            <div>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="font-bold text-xl">{t.habits}</h3>
+                                    <button onClick={() => {triggerHaptic('click'); setModal('addHabit')}} className="text-violet-600 font-bold text-sm bg-white px-4 py-2 rounded-full shadow-sm">+ {t.newHabit}</button>
+                                </div>
                                 <div className="space-y-4">
-                                    {habits.map((habit, index) => {
-                                        const curr = habit.progress?.[today] || 0;
-                                        const isDone = curr >= habit.goal;
-                                        
+                                    {habits.map(h => {
+                                        const done = (h.done[today]||0) >= h.goal;
                                         return (
-                                            <Card3D key={habit.id} onClick={() => incrementHabit(habit.id)} className={`p-4 flex items-center gap-4 transition-all duration-500 ${isDone ? 'opacity-60 grayscale-[0.3]' : ''}`}>
-                                                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-inner transition-all duration-300 ${isDone ? 'bg-green-400 text-white scale-95' : 'bg-white text-gray-700'}`}>
-                                                    {isDone ? '✓' : habit.emoji}
-                                                </div>
-                                                
+                                            <Card3D key={h.id} onClick={() => toggleHabit(h.id)} className={`p-4 flex items-center gap-4 ${done ? 'opacity-60' : ''}`}>
+                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${done ? 'bg-green-400 text-white' : 'bg-white'}`}>{done ? '✓' : h.emoji}</div>
                                                 <div className="flex-1">
-                                                    <div className="flex justify-between items-center mb-1">
-                                                        <h4 className={`font-bold text-lg text-slate-800 ${isDone && 'line-through text-slate-400'}`}>{habit.name}</h4>
-                                                        <div className="flex items-center gap-1 bg-orange-100 px-2 py-0.5 rounded-lg">
-                                                            <span className="text-orange-500 text-xs">🔥</span>
-                                                            <span className="text-orange-600 font-bold text-xs">{habit.streak}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                                                        <div className={`h-full rounded-full transition-all duration-500 ${isDone ? 'bg-green-500' : 'bg-violet-500'}`} style={{ width: `${(curr/habit.goal)*100}%` }} />
-                                                    </div>
+                                                    <h4 className={`font-bold text-lg ${done && 'line-through'}`}>{h.name}</h4>
+                                                    <div className="text-xs font-bold text-orange-500">🔥 {h.streak}</div>
                                                 </div>
                                             </Card3D>
-                                        );
+                                        )
                                     })}
-
-                                    {habits.length === 0 && (
-                                        <div className="text-center py-12 opacity-40">
-                                            <div className="text-5xl mb-4 grayscale">🌱</div>
-                                            <p className="font-bold">{translations[lang].freeHabits}</p>
-                                        </div>
-                                    )}
+                                    {habits.length === 0 && <div className="text-center py-12 opacity-50"><div className="text-5xl mb-4">🌱</div><p>{t.freeHabits}</p></div>}
                                 </div>
                             </div>
                         </main>
 
-                        {/* Floating Navigation */}
-                        <nav className="fixed bottom-8 left-6 right-6 glass rounded-3xl p-2 shadow-2xl flex justify-between items-center z-40 border border-white/40">
-                            {['habits', 'analytics', 'settings'].map(tab => (
-                                <button 
-                                    key={tab} 
-                                    onClick={() => { triggerHaptic('light'); setActiveTab(tab); }}
-                                    className={`flex-1 py-4 rounded-2xl flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === tab ? 'bg-slate-800 text-white shadow-xl transform -translate-y-4 scale-110' : 'text-slate-400 hover:bg-slate-100'}`}
-                                >
-                                    <span className="text-2xl drop-shadow-md">
-                                        {tab === 'habits' ? '🎯' : tab === 'analytics' ? '📊' : '⚙️'}
-                                    </span>
-                                </button>
-                            ))}
+                        {/* Nav */}
+                        <nav className="fixed bottom-8 left-6 right-6 glass rounded-3xl p-2 shadow-2xl flex justify-between z-40">
+                            {['🎯','📊','⚙️'].map((icon, i) => <button key={i} onClick={() => {triggerHaptic('click'); setActiveTab(i)}} className={`flex-1 py-4 rounded-2xl text-2xl transition-all ${activeTab===i ? 'bg-slate-800 text-white shadow-xl -translate-y-4' : 'text-slate-400'}`}>{icon}</button>)}
                         </nav>
+
+                        {/* Modals */}
                         
-                        {/* --- MODALS --- */}
-                        
-                        {/* PAYWALL MODAL */}
-                        {showPaywall && (
-                            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-end sm:items-center justify-center p-4 animate-enter">
-                                <div className="bg-white w-full max-w-md rounded-[32px] p-8 relative overflow-hidden shadow-2xl">
-                                    <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-violet-500 to-fuchsia-500" />
-                                    <button onClick={() => setShowPaywall(false)} className="absolute top-6 right-6 text-3xl text-slate-300 hover:text-slate-800 transition-colors">×</button>
-                                    
-                                    <div className="text-center mt-2 mb-8">
-                                        <div className="text-7xl mb-4 animate-float drop-shadow-2xl">💎</div>
-                                        <h2 className="text-3xl font-black text-slate-900 mb-2">{translations[lang].upgradeToPro}</h2>
-                                        <p className="text-slate-500 font-medium">{translations[lang].unlockPotential}</p>
+                        {/* 1. Add Habit */}
+                        {modal === 'addHabit' && (
+                            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end justify-center" onClick={() => setModal(null)}>
+                                <div className="bg-white w-full max-w-md rounded-t-[32px] p-8 animate-float" onClick={e=>e.stopPropagation()}>
+                                    <h2 className="text-2xl font-black mb-6">{t.newHabit}</h2>
+                                    <input id="inputHabit" placeholder={t.habitName} className="w-full p-4 bg-slate-100 rounded-2xl mb-4 font-bold outline-none" autoFocus />
+                                    <button onClick={() => addHabit(document.getElementById('inputHabit').value)} className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold shadow-lg">{t.create}</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 2. Friends */}
+                        {modal === 'friends' && (
+                            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setModal(null)}>
+                                <div className="bg-white w-full max-w-md rounded-[32px] p-6 h-[70vh] flex flex-col" onClick={e=>e.stopPropagation()}>
+                                    <div className="bg-slate-900 text-white p-6 rounded-3xl mb-6">
+                                        <p className="text-xs font-bold uppercase mb-1">{t.yourId}</p>
+                                        <div className="flex justify-between items-center"><code className="text-2xl font-mono font-bold">{user.id}</code><button onClick={()=>{navigator.clipboard.writeText(user.id); triggerHaptic('success')}} className="bg-white/20 px-3 py-1 rounded-lg text-xs">{t.copy}</button></div>
                                     </div>
-                                    
-                                    <div className="space-y-4 mb-8">
-                                        {['unlimitedHabits', 'feat_advancedAnalytics', 'feat_allThemes', 'aiCoach'].map(feat => (
-                                            <div key={feat} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold text-xs">✓</div>
-                                                <span className="font-bold text-slate-700">{translations[lang][feat] || feat}</span>
+                                    <div className="flex gap-2 mb-4">
+                                        <input id="friendId" placeholder="Friend ID" className="flex-1 p-3 bg-slate-100 rounded-xl font-bold" />
+                                        <button onClick={()=>addFriend(document.getElementById('friendId').value)} className="bg-violet-600 text-white px-6 rounded-xl font-bold">+</button>
+                                    </div>
+                                    <div className="overflow-y-auto flex-1 space-y-2">
+                                        {friends.map(f => (
+                                            <div key={f.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                                                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">{f.avatar}</div>
+                                                <div className="flex-1"><h4 className="font-bold">{f.name}</h4><p className="text-xs text-orange-500">Lv.{f.level}</p></div>
                                             </div>
                                         ))}
                                     </div>
-                                    
-                                    <button 
-                                        onClick={() => { setIsPro(true); setShowPaywall(false); setShowConfetti(true); triggerHaptic('success'); }}
-                                        className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-xl hover:scale-[1.02] transition-transform active:scale-95"
-                                    >
-                                        {translations[lang].startFreeTrial}
-                                    </button>
-                                    <p className="text-xs text-center text-slate-400 mt-4 font-medium opacity-60">{translations[lang].cancelAnytime}</p>
                                 </div>
                             </div>
                         )}
-
-                        {/* ADD HABIT MODAL */}
-                        {showAddHabit && (
-                            <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end justify-center" onClick={() => setShowAddHabit(false)}>
-                                <div className="bg-white w-full max-w-md rounded-t-[32px] p-8 animate-slide-up shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.3)]" onClick={e => e.stopPropagation()}>
-                                    <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-8" />
-                                    <h2 className="text-2xl font-black text-slate-800 mb-6">{translations[lang].newHabit}</h2>
-                                    <input id="newHabitInput" type="text" placeholder={translations[lang].habitName} className="w-full p-5 bg-slate-100 rounded-2xl mb-4 font-bold text-lg outline-none focus:ring-4 ring-violet-100 transition-all text-slate-800 placeholder:text-slate-400" autoFocus />
-                                    <button 
-                                        onClick={() => addNewHabit(document.getElementById('newHabitInput').value, 'General')}
-                                        className="w-full py-5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-2xl font-black text-lg shadow-lg hover:shadow-violet-500/30 transition-all active:scale-95"
-                                    >
-                                        {translations[lang].createHabit}
-                                    </button>
+                        
+                        {/* 3. Level Up Celebration */}
+                        {modal === 'levelUp' && (
+                            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-pop">
+                                <div className="bg-white w-full max-w-sm rounded-[32px] p-8 text-center relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-yellow-400 to-orange-500"></div>
+                                    <div className="text-8xl mb-4 animate-float">🎉</div>
+                                    <h2 className="text-3xl font-black text-slate-800 mb-2">{t.levelUp}</h2>
+                                    <p className="text-slate-500 mb-6 font-bold">{t.level} {user.level}</p>
+                                    <div className="bg-slate-100 p-4 rounded-2xl mb-6 border border-slate-200">
+                                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">REWARD</p>
+                                        <p className="text-xl font-bold text-violet-600">✨ New Avatar Style</p>
+                                    </div>
+                                    <button onClick={() => setModal(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl active:scale-95 transition-transform">{t.continue}</button>
                                 </div>
                             </div>
                         )}
-
-                        {/* FRIENDS MODAL */}
-                        {showFriends && (
-                            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-end sm:items-center justify-center p-4" onClick={() => setShowFriends(false)}>
-                                <div className="bg-white w-full max-w-md rounded-[32px] p-6 h-[80vh] flex flex-col animate-slide-up" onClick={e => e.stopPropagation()}>
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h2 className="text-2xl font-black text-slate-800">{translations[lang].friends}</h2>
-                                        <button onClick={() => setShowFriends(false)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold">×</button>
-                                    </div>
-
-                                    {/* My ID Card */}
-                                    <div className="bg-slate-900 text-white p-6 rounded-3xl mb-6 relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10" />
-                                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">{translations[lang].yourId}</p>
-                                        <div className="flex justify-between items-center">
-                                            <code className="text-3xl font-mono font-bold tracking-wider">{user.id}</code>
-                                            <button onClick={() => { navigator.clipboard.writeText(user.id); triggerHaptic('success'); }} className="bg-white/20 px-3 py-1 rounded-lg text-xs font-bold backdrop-blur">{translations[lang].copyId}</button>
-                                        </div>
-                                    </div>
-
-                                    {/* Add Friend Input */}
-                                    <div className="flex gap-2 mb-6">
-                                        <input 
-                                            value={friendInput}
-                                            onChange={(e) => setFriendInput(e.target.value)}
-                                            placeholder="Enter Friend ID (e.g. MOM1234)" 
-                                            className="flex-1 p-4 bg-slate-100 rounded-2xl font-bold uppercase placeholder:normal-case outline-none focus:ring-2 ring-violet-500"
-                                        />
-                                        <button onClick={handleAddFriend} className="bg-violet-600 text-white px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform">+</button>
-                                    </div>
-
-                                    {/* Friend List */}
-                                    <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-                                        {friends.length === 0 ? (
-                                            <div className="text-center py-10 opacity-50">
-                                                <div className="text-4xl mb-2">👥</div>
-                                                <p className="font-medium text-slate-500">No friends yet. Add one!</p>
-                                            </div>
-                                        ) : (
-                                            friends.map(friend => (
-                                                <div key={friend.id} className="flex items-center gap-4 p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-2xl border border-white shadow-sm">
-                                                        {friend.avatar}
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <h4 className="font-bold text-slate-800">{friend.name}</h4>
-                                                        <div className="flex gap-3 text-xs font-medium text-slate-500">
-                                                            <span>Lv.{friend.level}</span>
-                                                            <span className="text-orange-500">🔥 {friend.streak}</span>
-                                                        </div>
-                                                    </div>
-                                                    <button onClick={() => removeFriend(friend.id)} className="text-red-400 px-3 hover:text-red-600">×</button>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
                     </div>
                 </LanguageContext.Provider>
             );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<MomentumApp />);
+        root.render(<App />);
     </script>
-</body>
-</html>
