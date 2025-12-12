@@ -5,18 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="application-name" content="Momentum MAX">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Momentum MAX | Enterprise Edition</title>
 
     <script>
         window.onerror = function(msg, url, line) {
-            document.body.innerHTML = `
-                <div style="background:#000;color:#ef4444;height:100vh;padding:2rem;font-family:monospace;display:flex;flex-direction:column;justify-content:center;">
-                    <h1 style="font-size:2rem;margin-bottom:1rem">SYSTEM KERNEL PANIC</h1>
-                    <p style="opacity:0.7">${msg}</p>
-                    <div style="background:#222;padding:1rem;margin:1rem 0;border-radius:8px">Line: ${line}</div>
-                    <button onclick="localStorage.clear();window.location.reload()" style="background:#ef4444;color:white;border:none;padding:1rem;border-radius:8px;font-weight:bold;margin-top:2rem">HARD RESET DATABASE</button>
-                </div>`;
+            document.body.innerHTML = `<div style="background:#000;color:#ef4444;height:100vh;padding:2rem;font-family:monospace;display:flex;flex-direction:column;justify-content:center;text-align:center;"><h1 style="font-size:2rem;margin-bottom:1rem">SYSTEM KERNEL PANIC</h1><p style="opacity:0.7">${msg}</p><div style="background:#222;padding:1rem;margin:1rem 0;border-radius:8px">Line: ${line}</div><button onclick="localStorage.clear();window.location.reload()" style="background:#ef4444;color:white;border:none;padding:1rem;border-radius:8px;font-weight:bold;margin-top:2rem">HARD RESET DATABASE</button></div>`;
         };
     </script>
 
@@ -24,521 +18,364 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 
     <style>
         /* =========================================
-           ATLAS DESIGN SYSTEM (v1.0)
+           ATLAS DESIGN SYSTEM v2.0 (Dashboard Upgrades)
            ========================================= */
         :root {
-            /* Palette: Midnight Nebula */
-            --c-bg-main: #020617;
-            --c-bg-card: rgba(30, 41, 59, 0.6);
-            --c-bg-glass: rgba(255, 255, 255, 0.03);
-            --c-primary: #6366f1;
-            --c-primary-glow: rgba(99, 102, 241, 0.4);
-            --c-accent: #ec4899;
-            --c-success: #10b981;
-            --c-danger: #ef4444;
-            --c-text-main: #f8fafc;
-            --c-text-muted: #94a3b8;
-            
-            /* Physics & Timing */
-            --ease-elastic: cubic-bezier(0.34, 1.56, 0.64, 1);
-            --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
-            --duration-fast: 200ms;
-            --duration-normal: 400ms;
-            --duration-slow: 800ms;
-            
-            /* Dimensions */
-            --card-radius: 24px;
-            --btn-radius: 16px;
-            --input-radius: 12px;
+            --bg-main: #020617;
+            --primary: #6366f1;
+            --accent: #ec4899;
+            --glass: rgba(30, 41, 59, 0.7);
+            --border: rgba(255, 255, 255, 0.08);
+            --ease: cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        /* RESET & BASE */
         * { font-family: 'Outfit', sans-serif; -webkit-tap-highlight-color: transparent; box-sizing: border-box; touch-action: manipulation; user-select: none; }
         [dir="rtl"] * { font-family: 'Tajawal', sans-serif; }
         
-        body {
-            background-color: var(--c-bg-main);
-            color: var(--c-text-main);
-            overflow: hidden;
-            width: 100vw;
-            height: 100vh;
-            perspective: 1200px;
-        }
+        body { background-color: var(--bg-main); color: #fff; overflow: hidden; width: 100vw; height: 100vh; perspective: 1000px; }
 
-        /* 3D CARD ENGINE */
-        .card-3d-wrapper {
-            perspective: 1000px;
-            transform-style: preserve-3d;
-        }
-        
+        /* 3D ENGINE */
         .card-3d {
             position: relative;
             background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 
-                0 20px 40px -10px rgba(0,0,0,0.6),
-                inset 0 1px 0 rgba(255,255,255,0.1);
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6);
             transform-style: preserve-3d;
-            transition: transform 0.1s linear, box-shadow 0.3s var(--ease-out-expo);
+            transition: transform 0.1s linear, box-shadow 0.3s;
         }
-        
-        .card-3d::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(800px circle at var(--mouse-x) var(--mouse-y), rgba(255,255,255,0.06), transparent 40%);
-            opacity: 0;
-            transition: opacity 0.5s;
-            pointer-events: none;
-            border-radius: inherit;
-        }
-        
-        .card-3d:hover::after { opacity: 1; }
         .card-3d:active { transform: scale(0.96) rotateX(2deg); }
 
-        /* ADVANCED ANIMATIONS */
-        @keyframes float-y { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
-        @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 var(--c-primary-glow); } 70% { box-shadow: 0 0 0 20px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
-        @keyframes enter-slide-up { from { transform: translateY(120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes enter-pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        @keyframes shimmer-sweep { 0% { transform: translateX(-150%) skewX(-20deg); } 100% { transform: translateX(250%) skewX(-20deg); } }
-
-        .anim-enter-slide { animation: enter-slide-up 0.8s var(--ease-out-expo) forwards; }
-        .anim-enter-pop { animation: enter-pop 0.5s var(--ease-elastic) forwards; }
-        .anim-float { animation: float-y 8s ease-in-out infinite; }
-        .anim-pulse { animation: pulse-ring 3s infinite; }
-
-        /* COMPONENT UTILS */
-        .btn-primary {
-            background: linear-gradient(135deg, var(--c-primary) 0%, #8b5cf6 100%);
-            color: white;
-            box-shadow: 0 8px 32px -8px var(--c-primary-glow);
-            transition: all 0.2s;
+        /* HERO LIQUID FILL */
+        .liquid-fill {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            background: linear-gradient(to top, var(--primary), #a855f7);
+            transition: height 1s var(--ease);
+            opacity: 0.2; border-radius: inherit;
         }
-        .btn-primary:active { transform: scale(0.94); filter: brightness(1.1); }
+
+        /* CALENDAR STRIP */
+        .date-card {
+            min-width: 60px; height: 80px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border-radius: 20px; background: rgba(255,255,255,0.03);
+            border: 1px solid transparent; transition: all 0.3s var(--ease);
+        }
+        .date-card.active {
+            background: var(--primary);
+            box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.5);
+            transform: translateY(-5px) scale(1.1);
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        /* ANIMATIONS */
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        @keyframes pop { 0%{transform:scale(0.8);opacity:0} 100%{transform:scale(1);opacity:1} }
+        @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
         
-        .shimmer-text {
-            background: linear-gradient(90deg, #fff 0%, #a5b4fc 50%, #fff 100%);
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: textShine 3s linear infinite;
-        }
-        @keyframes textShine { to { background-position: 200% center; } }
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        .animate-pop { animation: pop 0.4s var(--ease) forwards; }
+        .animate-slide-up { animation: slideUp 0.5s var(--ease) forwards; }
 
-        .input-hollow {
-            background: transparent;
-            border: none;
-            border-bottom: 2px solid rgba(255,255,255,0.1);
-            border-radius: 0;
-            color: white;
-            transition: 0.3s;
-        }
-        .input-hollow:focus {
-            outline: none;
-            border-color: var(--c-primary);
-            background: linear-gradient(to top, rgba(99, 102, 241, 0.1), transparent);
-        }
-
-        /* BACKGROUND FX */
-        .orb {
-            position: fixed;
-            border-radius: 50%;
-            filter: blur(120px);
-            z-index: -1;
-            opacity: 0.3;
-        }
-        .orb-1 { top: -20%; left: -20%; width: 500px; height: 500px; background: var(--c-primary); animation: float-y 10s infinite; }
-        .orb-2 { bottom: -20%; right: -20%; width: 600px; height: 600px; background: var(--c-accent); animation: float-y 12s infinite reverse; }
+        /* UI UTILS */
+        .btn-primary { background: linear-gradient(135deg, var(--primary), #8b5cf6); box-shadow: 0 8px 32px -8px rgba(99,102,241,0.5); }
+        .blob-bg { position: fixed; filter: blur(120px); z-index: -1; opacity: 0.3; border-radius: 50%; animation: float 10s infinite; }
+        .scroll-hide::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback, createContext, useContext, useReducer, useRef } = React;
+        const { useState, useEffect, useCallback, useMemo, useRef, useReducer } = React;
 
         // =========================================
-        // PART 1: THE VECTOR VAULT (Icons)
+        // 1. ASSET LIBRARY
         // =========================================
         const Icons = {
             bolt: <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-            user: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-            chart: <path d="M18 20V10 M12 20V4 M6 20v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-            settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-            check: <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-            lock: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-            star: <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-            fire: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.6-3.3a7 7 0 0 0 .9 2.8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-            brain: <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-            wallet: <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-            target: <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="12" r="6" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="12" r="2" stroke="currentColor" strokeWidth="2"/>,
-            chevronRight: <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            check: <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>,
+            plus: <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+            home: <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+            chart: <path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+            user: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+            calendar: <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="2"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="2"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="2"/>,
+            fire: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.6-3.3a7 7 0 0 0 .9 2.8z" stroke="currentColor" strokeWidth="2"/>,
+            star: <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="2"/>
         };
 
-        const Icon = ({ name, size=24, className="" }) => (
-            <svg viewBox="0 0 24 24" width={size} height={size} fill="none" className={className}>{Icons[name]}</svg>
-        );
+        const Icon = ({ name, size=24, className="" }) => <svg viewBox="0 0 24 24" width={size} height={size} fill="none" className={className}>{Icons[name]||Icons.bolt}</svg>;
 
         // =========================================
-        // PART 2: THE SYNTHESIZER (Audio Engine)
+        // 2. ENGINES (Audio, Storage, Reducer)
         // =========================================
-        class AudioSystem {
-            constructor() { this.ctx = null; }
-            init() { if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } if(this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); }
-            
-            play(type) {
-                this.init(); if (!this.ctx) return;
-                const t = this.ctx.currentTime;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.connect(gain); gain.connect(this.ctx.destination);
-
+        const Sfx = {
+            play: (type) => {
+                if(!window.AudioContext && !window.webkitAudioContext) return;
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator(); const g = ctx.createGain();
+                osc.connect(g); g.connect(ctx.destination);
+                const t = ctx.currentTime;
+                
                 if (type === 'tap') {
-                    osc.frequency.setValueAtTime(400, t);
-                    osc.frequency.exponentialRampToValueAtTime(600, t + 0.05);
-                    gain.gain.setValueAtTime(0.05, t);
-                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-                    osc.start(t); osc.stop(t + 0.05);
-                }
-                else if (type === 'success') {
-                    // C Major Chord
-                    [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
-                        const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
-                        o.connect(g); g.connect(this.ctx.destination);
-                        o.type = 'triangle'; o.frequency.value = f;
-                        g.gain.setValueAtTime(0.05, t + i*0.05);
-                        g.gain.linearRampToValueAtTime(0.001, t + i*0.05 + 0.5);
-                        o.start(t + i*0.05); o.stop(t + i*0.05 + 0.5);
+                    osc.frequency.setValueAtTime(400, t); osc.frequency.exponentialRampToValueAtTime(600, t+0.05);
+                    g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.05);
+                    osc.start(t); osc.stop(t+0.05);
+                } else if (type === 'success') {
+                    [523, 659, 783].forEach((f,i) => {
+                        const o=ctx.createOscillator(); const gx=ctx.createGain();
+                        o.connect(gx); gx.connect(ctx.destination);
+                        o.frequency.value=f; gx.gain.setValueAtTime(0.05, t+i*0.05);
+                        gx.gain.linearRampToValueAtTime(0.001, t+i*0.05+0.4);
+                        o.start(t+i*0.05); o.stop(t+i*0.05+0.4);
                     });
                 }
             }
-        }
-        const Sfx = new AudioSystem();
-
-        // =========================================
-        // PART 3: THE BRAIN (State & Storage)
-        // =========================================
-        const APP_VERSION = 'MAX_1.0';
-        
-        const DEFAULT_STATE = {
-            user: { 
-                id: 'USR_'+Date.now(), 
-                name: '', 
-                avatar: '🦁', 
-                goal: null, 
-                xp: 0, 
-                level: 1, 
-                isPro: false,
-                streak: 0,
-                joinedAt: null 
-            },
-            settings: { lang: 'en', sound: true, haptics: true, theme: 'midnight' },
-            habits: [],
-            friends: [],
-            logs: {}, // { '2023-10-20': { habitId: 1 } }
-            onboardingStep: 0 // 0=Lang, 1=Intro, 2=Name, 3=Goal, 4=Paywall, 5=Dashboard
         };
 
         const Storage = {
-            load: () => {
-                try {
-                    const local = localStorage.getItem('momentum_max_db');
-                    return local ? { ...DEFAULT_STATE, ...JSON.parse(local) } : DEFAULT_STATE;
-                } catch { return DEFAULT_STATE; }
-            },
-            save: (state) => {
-                try { localStorage.setItem('momentum_max_db', JSON.stringify(state)); } catch(e) { console.error("Save failed", e); }
-            }
+            load: () => { try { return JSON.parse(localStorage.getItem('MAX_V2')) || null } catch { return null } },
+            save: (state) => localStorage.setItem('MAX_V2', JSON.stringify(state))
         };
 
-        // Reducer for complex state logic
         const reducer = (state, action) => {
             const next = { ...state };
             switch(action.type) {
-                case 'SET_LANG': next.settings.lang = action.payload; break;
-                case 'SET_NAME': next.user.name = action.payload; break;
-                case 'SET_GOAL': next.user.goal = action.payload; break;
-                case 'SET_PRO': next.user.isPro = action.payload; break;
-                case 'NEXT_STEP': next.onboardingStep += 1; break;
-                case 'COMPLETE_ONBOARDING': 
-                    next.user.joinedAt = new Date().toISOString(); 
-                    next.onboardingStep = 5; 
-                    break;
+                case 'SET_ONBOARDING': next.onboardingStep = action.payload; break;
+                case 'UPDATE_USER': next.user = { ...next.user, ...action.payload }; break;
                 case 'ADD_HABIT': next.habits.push(action.payload); break;
-                case 'COMPLETE_HABIT':
+                case 'TOGGLE_HABIT':
                     const { id, date } = action.payload;
-                    if(!next.logs[date]) next.logs[date] = {};
-                    next.logs[date][id] = (next.logs[date][id] || 0) + 1;
-                    next.user.xp += 15;
-                    // Level up logic
-                    if(next.user.xp >= next.user.level * 100) {
-                        next.user.level += 1;
-                        next.user.xp = 0;
+                    if (!next.logs[date]) next.logs[date] = {};
+                    const current = next.logs[date][id] || 0;
+                    const habit = next.habits.find(h => h.id === id);
+                    if (current < habit.goal) {
+                        next.logs[date][id] = current + 1;
+                        next.user.xp += 20; // XP Gain
                     }
                     break;
-                case 'RESET': return DEFAULT_STATE;
+                case 'RESET': return null;
             }
             Storage.save(next);
             return next;
         };
 
-        // =========================================
-        // PART 4: TRANSLATION MATRIX
-        // =========================================
-        const LANG = {
-            en: {
-                welcome: "Welcome to Momentum MAX",
-                tagline: "The ultimate system for high performers.",
-                selectLang: "Select Language",
-                continue: "Continue",
-                nameQ: "What should we call you?",
-                namePlace: "Enter your name",
-                goalQ: "What is your main focus?",
-                goals: [
-                    { id: 'fit', label: 'Physical Health', desc: 'Build muscle & endurance', icon: 'fire' },
-                    { id: 'mind', label: 'Mental Clarity', desc: 'Reduce stress & anxiety', icon: 'brain' },
-                    { id: 'work', label: 'Deep Work', desc: 'Maximize productivity', icon: 'target' },
-                    { id: 'rich', label: 'Build Wealth', desc: 'Financial freedom', icon: 'wallet' }
-                ],
-                paywallTitle: "Unlock Your Potential",
-                paywallSub: "Join the top 1% of achievers.",
-                features: ["Unlimited Habits", "AI Smart Coach", "Cloud Sync", "Dark Mode"],
-                trial: "Start 7-Day Free Trial",
-                free: "Continue with Free Plan",
-                loading: "Initializing Dashboard...",
-                dashboard: "Dashboard"
-            },
-            ar: {
-                welcome: "مرحباً بك في مومنتم ماكس",
-                tagline: "النظام المتكامل للأداء العالي.",
-                selectLang: "اختر اللغة",
-                continue: "متابعة",
-                nameQ: "ما هو اسمك؟",
-                namePlace: "أدخل اسمك هنا",
-                goalQ: "ما هو تركيزك الأساسي؟",
-                goals: [
-                    { id: 'fit', label: 'الصحة البدنية', desc: 'بناء العضلات واللياقة', icon: 'fire' },
-                    { id: 'mind', label: 'الصفاء الذهني', desc: 'تقليل التوتر والقلق', icon: 'brain' },
-                    { id: 'work', label: 'العمل العميق', desc: 'زيادة الإنتاجية والتركيز', icon: 'target' },
-                    { id: 'rich', label: 'بناء الثروة', desc: 'الاستقلال المالي', icon: 'wallet' }
-                ],
-                paywallTitle: "أطلق العنان لقدراتك",
-                paywallSub: "انضم إلى صفوة المستخدمين.",
-                features: ["عادات غير محدودة", "المدرب الذكي", "مزامنة سحابية", "الوضع الليلي"],
-                trial: "ابدأ تجربة مجانية 7 أيام",
-                free: "المتابعة بالخطة المجانية",
-                loading: "جاري إعداد لوحة التحكم...",
-                dashboard: "الرئيسية"
-            }
+        const INITIAL_STATE = {
+            user: { name: '', avatar: '🦁', xp: 0, level: 1, isPro: false },
+            settings: { lang: 'en', theme: 'midnight' },
+            habits: [],
+            logs: {},
+            onboardingStep: 0
         };
 
         // =========================================
-        // PART 5: UI COMPONENTS
+        // 3. COMPONENTS
         // =========================================
-        const Button = ({ children, onClick, variant='primary', disabled, className="" }) => (
-            <button 
-                onClick={(e) => { if(!disabled) { Sfx.play('tap'); onClick && onClick(e); } }} 
-                disabled={disabled}
-                className={`w-full py-4 rounded-2xl font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 
-                ${disabled ? 'opacity-50 cursor-not-allowed bg-slate-800 text-slate-500' : 
-                  variant === 'primary' ? 'btn-primary text-white shadow-lg shadow-indigo-500/30' : 
-                  'bg-slate-800 text-white border border-slate-700'} 
-                ${className}`}
-            >
-                {children}
-            </button>
-        );
-
-        const Card3D = ({ children, onClick, selected, className="" }) => {
+        const Card3D = ({ children, onClick, className="" }) => {
             const ref = useRef(null);
-            
             const handleMove = (e) => {
                 if(!ref.current) return;
-                const rect = ref.current.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                ref.current.style.setProperty('--mouse-x', `${x}px`);
-                ref.current.style.setProperty('--mouse-y', `${y}px`);
+                const r = ref.current.getBoundingClientRect();
+                const x = e.clientX - r.left; const y = e.clientY - r.top;
+                ref.current.style.setProperty('--x', x); ref.current.style.setProperty('--y', y);
+            };
+            return <div ref={ref} onMouseMove={handleMove} onClick={(e)=>{Sfx.play('tap'); onClick&&onClick(e)}} className={`card-3d p-5 rounded-3xl overflow-hidden cursor-pointer ${className}`}>{children}</div>;
+        };
+
+        const DateStrip = ({ selected, onSelect }) => {
+            const days = useMemo(() => Array.from({length:7}, (_,i) => {
+                const d = new Date(); d.setDate(d.getDate() - 3 + i);
+                return { date: d.toISOString().split('T')[0], day: d.getDate(), name: d.toLocaleDateString('en-US', {weekday:'short'}) };
+            }), []);
+
+            return (
+                <div className="flex gap-3 overflow-x-auto pb-4 pt-2 px-2 scroll-hide snap-x">
+                    {days.map(d => (
+                        <div key={d.date} onClick={() => {Sfx.play('tap'); onSelect(d.date)}} 
+                             className={`date-card snap-center flex-shrink-0 cursor-pointer ${selected === d.date ? 'active' : ''}`}>
+                            <div className="text-xs font-bold opacity-60 mb-1">{d.name}</div>
+                            <div className="text-xl font-black">{d.day}</div>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        // =========================================
+        // 4. MAIN DASHBOARD (The Core Part 2)
+        // =========================================
+        const Dashboard = ({ state, dispatch }) => {
+            const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+            const [showAdd, setShowAdd] = useState(false);
+            const [activeTab, setActiveTab] = useState('home');
+
+            // Stats Logic
+            const dailyLogs = state.logs[date] || {};
+            const completed = state.habits.filter(h => (dailyLogs[h.id] || 0) >= h.goal).length;
+            const total = state.habits.length;
+            const progress = total ? Math.round((completed / total) * 100) : 0;
+
+            const handleAddHabit = (name) => {
+                if (!name) return;
+                dispatch({ 
+                    type: 'ADD_HABIT', 
+                    payload: { id: Date.now(), name, goal: 1, icon: 'star', color: 'indigo' } 
+                });
+                setShowAdd(false);
+                Sfx.play('success');
             };
 
             return (
-                <div 
-                    ref={ref}
-                    onMouseMove={handleMove}
-                    onClick={(e) => { Sfx.play('tap'); onClick && onClick(e); }}
-                    className={`card-3d relative p-5 rounded-3xl cursor-pointer overflow-hidden transition-all duration-300
-                    ${selected ? 'ring-2 ring-indigo-500 bg-white/10' : 'hover:bg-white/5'} ${className}`}
-                >
-                    {children}
-                </div>
-            );
-        };
+                <div className="h-screen flex flex-col relative">
+                    <div className="blob-bg top-0 right-0 w-80 h-80 bg-indigo-600"></div>
+                    <div className="blob-bg bottom-0 left-0 w-80 h-80 bg-pink-600"></div>
 
-        // =========================================
-        // PART 6: ONBOARDING FLOW
-        // =========================================
-        const Onboarding = ({ state, dispatch }) => {
-            const t = LANG[state.settings.lang];
-            const isRTL = state.settings.lang === 'ar';
-            const step = state.onboardingStep;
-
-            const next = () => dispatch({ type: 'NEXT_STEP' });
-
-            // Step 0: Language
-            if (step === 0) return (
-                <div className="h-screen flex flex-col items-center justify-center p-8 animate-pop">
-                    <div className="text-6xl mb-6 animate-float">🌍</div>
-                    <h1 className="text-3xl font-bold mb-8 text-center">{t.selectLang}</h1>
-                    <div className="space-y-4 w-full max-w-sm">
-                        <Button variant="secondary" onClick={() => { dispatch({type:'SET_LANG', payload:'en'}); next(); }}>🇺🇸 English</Button>
-                        <Button variant="secondary" onClick={() => { dispatch({type:'SET_LANG', payload:'ar'}); next(); }}>🇸🇦 العربية</Button>
-                    </div>
-                </div>
-            );
-
-            // Step 1: Welcome
-            if (step === 1) return (
-                <div className="h-screen flex flex-col justify-between p-8 animate-slide-up" dir={isRTL ? 'rtl' : 'ltr'}>
-                    <div className="mt-20">
-                        <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center mb-8 shadow-2xl shadow-indigo-500/20 rotate-3">
-                            <Icon name="bolt" size={40} className="text-white" />
+                    {/* HEADER */}
+                    <div className="px-6 pt-12 pb-2 flex justify-between items-center bg-slate-900/50 backdrop-blur-md z-20">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xl shadow-lg border border-white/20">
+                                {state.user.avatar}
+                            </div>
+                            <div>
+                                <div className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">Welcome Back</div>
+                                <div className="text-lg font-black leading-none">{state.user.name}</div>
+                            </div>
                         </div>
-                        <h1 className="text-5xl font-black leading-tight mb-4 tracking-tight">{t.welcome}</h1>
-                        <p className="text-slate-400 text-xl font-medium">{t.tagline}</p>
+                        <div className="px-3 py-1 bg-white/10 rounded-full border border-white/10 text-xs font-bold flex items-center gap-2">
+                            <span className="text-yellow-400">⚡</span> {state.user.xp} XP
+                        </div>
                     </div>
-                    <Button onClick={next}>{t.continue} <Icon name="chevronRight" /></Button>
-                </div>
-            );
 
-            // Step 2: Name
-            if (step === 2) return (
-                <div className="h-screen flex flex-col justify-between p-8 animate-slide-up" dir={isRTL ? 'rtl' : 'ltr'}>
-                    <div className="mt-20">
-                        <h2 className="text-3xl font-bold mb-8">{t.nameQ}</h2>
-                        <input 
-                            value={state.user.name}
-                            onChange={(e) => dispatch({type:'SET_NAME', payload:e.target.value})}
-                            placeholder={t.namePlace}
-                            className="input-hollow w-full text-4xl font-bold py-4 text-center placeholder:text-slate-700"
-                            autoFocus
-                        />
+                    {/* CALENDAR STRIP */}
+                    <div className="px-4 mb-2">
+                        <DateStrip selected={date} onSelect={setDate} />
                     </div>
-                    <Button disabled={!state.user.name} onClick={next}>{t.continue}</Button>
-                </div>
-            );
 
-            // Step 3: Goal
-            if (step === 3) return (
-                <div className="h-screen flex flex-col p-6 animate-slide-up" dir={isRTL ? 'rtl' : 'ltr'}>
-                    <h2 className="text-2xl font-bold mb-6 mt-10">{t.goalQ}</h2>
-                    <div className="space-y-4 flex-1 overflow-y-auto pb-4">
-                        {t.goals.map(g => (
-                            <Card3D 
-                                key={g.id} 
-                                onClick={() => { dispatch({type:'SET_GOAL', payload:g.id}); next(); }}
-                                className="flex items-center gap-5 group"
-                            >
-                                <div className="p-4 bg-white/5 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-colors text-indigo-400">
-                                    <Icon name={g.icon} size={28} />
-                                </div>
+                    {/* SCROLLABLE CONTENT */}
+                    <div className="flex-1 overflow-y-auto px-6 pb-32 space-y-6 animate-slide-up">
+                        
+                        {/* HERO CARD */}
+                        <Card3D className="h-48 flex flex-col justify-between border-0 relative group">
+                            <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-700 opacity-90 z-0"></div>
+                            {/* Liquid Fill Animation */}
+                            <div className="liquid-fill z-0" style={{height: `${progress}%`}}></div>
+                            
+                            <div className="relative z-10 flex justify-between items-start">
                                 <div>
-                                    <h3 className="font-bold text-xl">{g.label}</h3>
-                                    <p className="text-sm text-slate-400">{g.desc}</p>
+                                    <div className="text-indigo-200 text-xs font-bold uppercase mb-1">Daily Focus</div>
+                                    <div className="text-5xl font-black tracking-tight">{progress}%</div>
                                 </div>
-                            </Card3D>
+                                <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center text-2xl border border-white/20">
+                                    🔥
+                                </div>
+                            </div>
+                            <div className="relative z-10 text-sm font-medium text-indigo-100 opacity-80">
+                                {progress === 100 ? "All tasks complete! You're unstoppable." : `${completed} of ${total} habits completed`}
+                            </div>
+                        </Card3D>
+
+                        {/* HABITS LIST */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-end">
+                                <h2 className="text-xl font-bold">Your Habits</h2>
+                                <button onClick={()=>setShowAdd(true)} className="text-indigo-400 text-sm font-bold bg-indigo-500/10 px-3 py-1 rounded-lg hover:bg-indigo-500/20 transition">+ New Habit</button>
+                            </div>
+
+                            {state.habits.length === 0 ? (
+                                <div className="text-center py-10 opacity-50 border-2 border-dashed border-slate-700 rounded-3xl">
+                                    <div className="text-4xl mb-4 grayscale">🌱</div>
+                                    <p>No habits for this day.</p>
+                                    <button onClick={()=>setShowAdd(true)} className="mt-4 text-indigo-400 font-bold underline">Create your first habit</button>
+                                </div>
+                            ) : (
+                                state.habits.map(habit => {
+                                    const count = dailyLogs[habit.id] || 0;
+                                    const isDone = count >= habit.goal;
+                                    
+                                    return (
+                                        <Card key={habit.id} onClick={() => dispatch({type:'TOGGLE_HABIT', payload:{id:habit.id, date}})} 
+                                              className={`flex items-center gap-4 transition-all duration-500 ${isDone ? 'opacity-60 grayscale-[0.5] bg-green-900/20 border-green-500/30' : ''}`}>
+                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 ${isDone ? 'bg-green-500 text-white scale-110 shadow-[0_0_20px_rgba(34,197,94,0.4)]' : 'bg-slate-700/50 text-indigo-400'}`}>
+                                                {isDone ? <Icon name="check" /> : <Icon name={habit.icon || 'star'} />}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between mb-2">
+                                                    <span className={`font-bold text-lg ${isDone && 'line-through text-slate-400'}`}>{habit.name}</span>
+                                                    <span className="text-xs font-bold text-slate-500">{count}/{habit.goal}</span>
+                                                </div>
+                                                <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                                                    <div className={`h-full transition-all duration-700 ${isDone ? 'bg-green-500' : 'bg-indigo-500'}`} style={{width: `${(count/habit.goal)*100}%`}}></div>
+                                                </div>
+                                            </div>
+                                        </Card>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+
+                    {/* NAVIGATION BAR */}
+                    <div className="fixed bottom-6 left-6 right-6 h-20 bg-slate-900/90 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl flex justify-around items-center px-2 z-50">
+                        {['home', 'chart', 'user'].map(tab => (
+                            <button key={tab} onClick={() => {Sfx.play('tap'); setActiveTab(tab)}} 
+                                className={`p-4 rounded-2xl transition-all duration-300 ${activeTab === tab ? 'bg-indigo-600 text-white shadow-[0_10px_20px_-5px_rgba(79,70,229,0.5)] -translate-y-4 scale-110' : 'text-slate-500 hover:text-white'}`}>
+                                <Icon name={tab} size={24} />
+                            </button>
                         ))}
                     </div>
-                </div>
-            );
 
-            // Step 4: Paywall
-            if (step === 4) return (
-                <div className="h-screen flex flex-col p-6 animate-pop relative overflow-hidden" dir={isRTL ? 'rtl' : 'ltr'}>
-                    <div className="orb orb-1"></div>
-                    <div className="orb orb-2"></div>
-
-                    <div className="flex-1 flex flex-col items-center justify-center text-center z-10">
-                        <div className="text-7xl mb-6 animate-float drop-shadow-2xl">💎</div>
-                        <h2 className="text-3xl font-black mb-2">{t.paywallTitle}</h2>
-                        <p className="text-slate-300 mb-8 text-lg">{t.paywallSub}</p>
-
-                        <div className="w-full bg-slate-900/50 backdrop-blur-xl rounded-3xl p-6 border border-white/10 mb-8 shadow-2xl">
-                            <ul className="space-y-4 text-left">
-                                {t.features.map((f, i) => (
-                                    <li key={i} className="flex items-center gap-4">
-                                        <div className="w-6 h-6 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center">
-                                            <Icon name="check" size={14} />
-                                        </div>
-                                        <span className="font-medium text-lg">{f}</span>
-                                    </li>
-                                ))}
-                            </ul>
+                    {/* ADD HABIT MODAL */}
+                    {showAdd && (
+                        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-end justify-center animate-pop" onClick={()=>setShowAdd(false)}>
+                            <div className="bg-slate-900 w-full max-w-md rounded-t-[40px] p-8 border-t border-white/10" onClick={e=>e.stopPropagation()}>
+                                <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-8"></div>
+                                <h2 className="text-3xl font-black mb-6">New Habit</h2>
+                                <input id="newHabit" placeholder="e.g., Drink Water" className="w-full bg-slate-800 p-5 rounded-2xl text-xl font-bold text-white placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500 mb-6 border border-white/5" autoFocus />
+                                <div className="flex gap-3">
+                                    <button onClick={()=>setShowAdd(false)} className="flex-1 py-4 font-bold text-slate-400">Cancel</button>
+                                    <button onClick={()=>handleAddHabit(document.getElementById('newHabit').value)} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg">Create Habit</button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-
-                    <div className="z-10 space-y-4">
-                        <Button 
-                            onClick={() => { Sfx.play('success'); dispatch({type:'SET_PRO', payload:true}); dispatch({type:'COMPLETE_ONBOARDING'}); }}
-                            className="anim-pulse"
-                        >
-                            {t.trial}
-                        </Button>
-                        <button 
-                            onClick={() => { dispatch({type:'SET_PRO', payload:false}); dispatch({type:'COMPLETE_ONBOARDING'}); }}
-                            className="w-full text-center text-sm text-slate-400 font-bold py-2 hover:text-white transition-colors"
-                        >
-                            {t.free}
-                        </button>
-                    </div>
+                    )}
                 </div>
             );
-
-            return null;
         };
 
         // =========================================
-        // PART 7: APP ORCHESTRATOR
+        // 5. ONBOARDING (Simplified for Context)
+        // =========================================
+        const Onboarding = ({ dispatch }) => {
+            const [step, setStep] = useState(0);
+            const [name, setName] = useState("");
+            
+            const next = () => { Sfx.play('tap'); setStep(s => s + 1); };
+            const finish = () => {
+                Sfx.play('success');
+                dispatch({ type: 'UPDATE_USER', payload: { name } });
+                dispatch({ type: 'SET_ONBOARDING', payload: 5 });
+            };
+
+            if(step === 0) return <div className="h-screen flex flex-col items-center justify-center p-8 text-center animate-pop"><div className="text-6xl mb-6">🚀</div><h1 className="text-4xl font-black mb-4">Momentum</h1><p className="text-slate-400 mb-8">The ultimate habit tracker.</p><button onClick={next} className="btn-primary w-full py-4 rounded-2xl font-bold text-white shadow-lg">Get Started</button></div>;
+            
+            if(step === 1) return <div className="h-screen flex flex-col justify-center p-8 animate-slide-up"><h2 className="text-3xl font-bold mb-4">What's your name?</h2><input value={name} onChange={e=>setName(e.target.value)} placeholder="Name" className="bg-transparent border-b-2 border-slate-700 text-3xl font-bold py-2 mb-8 focus:outline-none focus:border-indigo-500" /><button onClick={finish} disabled={!name} className="btn-primary w-full py-4 rounded-2xl font-bold text-white shadow-lg disabled:opacity-50">Start Dashboard</button></div>;
+        };
+
+        // =========================================
+        // 6. ROOT APP
         // =========================================
         function App() {
-            const [state, dispatch] = useReducer(reducer, Storage.load());
-            const [loading, setLoading] = useState(false);
-
-            // Routing Logic
-            if (state.onboardingStep < 5) {
-                return <Onboarding state={state} dispatch={dispatch} />;
-            }
-
-            if (loading) return (
-                <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white animate-pop">
-                    <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-                    <p className="font-bold opacity-50 text-xl tracking-widest">{LANG[state.settings.lang].loading}</p>
-                </div>
-            );
-
-            // PART 2 (DASHBOARD) PLACEHOLDER
-            return (
-                <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-900 text-white animate-pop p-8 text-center">
-                    <div className="text-6xl mb-4">🚀</div>
-                    <h1 className="text-3xl font-black mb-2">Part 1 Complete</h1>
-                    <p className="text-slate-400 mb-8">
-                        Your profile is securely saved in the local database.<br/>
-                        Name: <b className="text-white">{state.user.name}</b><br/>
-                        Goal ID: <b className="text-white">{state.user.goal}</b><br/>
-                        Pro Status: <b className={state.user.isPro ? "text-green-400" : "text-slate-500"}>{state.user.isPro ? "MAX Active" : "Free Plan"}</b>
-                    </p>
-                    <Button onClick={() => dispatch({type:'RESET'})} variant="secondary" className="bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20">
-                        Reset Demo
-                    </Button>
-                </div>
-            );
+            const [state, dispatch] = useReducer(reducer, Storage.load() || INITIAL_STATE);
+            
+            // If onboarding not done (step < 5)
+            if (state.onboardingStep < 5) return <Onboarding dispatch={dispatch} />;
+            
+            // Otherwise, Dashboard
+            return <Dashboard state={state} dispatch={dispatch} />;
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
