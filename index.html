@@ -2,16 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#7c3aed">
     <title>Momentum MAX</title>
     
-    <script>
-        window.onerror = function(msg, url, line) {
-            document.body.innerHTML = '<div style="background:#000; color:#ff5555; padding:20px; font-family:sans-serif;"><h1>⚠️ App Error</h1><p>'+msg+'</p><p>Line: '+line+'</p></div>';
-        };
-    </script>
-
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -19,13 +13,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
 
     <style>
-        /* --- CSS ENGINE --- */
         :root { --primary: #7c3aed; }
         * { font-family: 'Outfit', sans-serif; -webkit-tap-highlight-color: transparent; box-sizing: border-box; touch-action: manipulation; user-select: none; }
         [dir="rtl"] * { font-family: 'Tajawal', sans-serif; }
-        body { background-color: #f0f2f5; overscroll-behavior-y: none; perspective: 1000px; }
+        body { background-color: #f0f2f5; overscroll-behavior-y: none; perspective: 1000px; overflow-x: hidden; }
         
-        /* 3D Cards */
+        /* 3D Engine */
         .card-3d-wrapper { perspective: 1000px; transform-style: preserve-3d; }
         .card-3d { transition: transform 0.1s, box-shadow 0.3s; transform-style: preserve-3d; background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7)); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 10px 30px -10px rgba(0,0,0,0.1); }
         .card-3d:active { transform: scale(0.96) rotateX(2deg); }
@@ -38,47 +31,94 @@
         .animate-pop { animation: pop 0.3s ease-out; }
         .confetti { position: fixed; width: 8px; height: 8px; z-index: 60; pointer-events: none; }
         
+        /* Background */
         .blob { position: fixed; filter: blur(60px); z-index: -1; opacity: 0.5; animation: float 8s infinite; }
         .blob-1 { top: -10%; right: -10%; width: 200px; height: 200px; background: #c084fc; }
         .blob-2 { bottom: -10%; left: -10%; width: 200px; height: 200px; background: #60a5fa; animation-delay: 2s; }
-        
-        .glass { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.5); }
+        .glass { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.5); }
+
+        /* Emergency Reset Button */
+        #emergency-reset { position: fixed; top: 10px; left: 10px; z-index: 9999; background: red; color: white; padding: 10px; border-radius: 8px; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
+    <button id="emergency-reset" onclick="localStorage.clear(); window.location.reload();">⚠️ RESET APP</button>
+    
     <div id="root"></div>
+
+    <script>
+        // Show emergency button if app takes too long to load
+        setTimeout(() => {
+            if (!document.querySelector('.card-3d')) {
+                document.getElementById('emergency-reset').style.display = 'block';
+            }
+        }, 3000);
+    </script>
 
     <script type="text/babel">
         const { useState, useEffect, useCallback, createContext, useContext, useRef } = React;
 
-        // --- 1. AUDIO ENGINE (Synthesized) ---
+        // --- 1. SAFE STORAGE ENGINE (Prevents Crashes) ---
+        const APP_VERSION = '4.0'; // Changing this forces a data reset if structure changes
+        const storage = {
+            get: (key, def) => { 
+                try { 
+                    const stored = localStorage.getItem(key);
+                    const version = localStorage.getItem('app_version');
+                    
+                    // If version mismatch, return default (prevents crash)
+                    if (version !== APP_VERSION) return def; 
+                    
+                    return stored ? JSON.parse(stored) : def; 
+                } catch { return def; } 
+            },
+            set: (key, val) => { 
+                try { 
+                    localStorage.setItem(key, JSON.stringify(val)); 
+                    localStorage.setItem('app_version', APP_VERSION);
+                } catch {} 
+            }
+        };
+
+        // --- 2. AUDIO ENGINE (Mobile Safe) ---
         const SoundEngine = {
             ctx: null,
             play: (type) => {
-                if (!window.AudioContext && !window.webkitAudioContext) return;
-                if (!SoundEngine.ctx) SoundEngine.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const ctx = SoundEngine.ctx;
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain); gain.connect(ctx.destination);
-                const now = ctx.currentTime;
-                
-                if (type === 'success') { // Ding
-                    osc.type = 'sine'; osc.frequency.setValueAtTime(500, now); osc.frequency.exponentialRampToValueAtTime(1000, now + 0.1);
-                    gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-                    osc.start(now); osc.stop(now + 0.5);
-                } else if (type === 'levelup') { // Chord
-                    [440, 554, 659].forEach((f,i) => {
-                        const o=ctx.createOscillator(); const g=ctx.createGain(); o.connect(g); g.connect(ctx.destination);
-                        o.type='triangle'; o.frequency.setValueAtTime(f, now+i*0.1); 
-                        g.gain.setValueAtTime(0.2, now+i*0.1); g.gain.exponentialRampToValueAtTime(0.01, now+1.5);
-                        o.start(now+i*0.1); o.stop(now+1.5);
-                    });
-                } else { // Click
-                    osc.frequency.setValueAtTime(300, now); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                    osc.start(now); osc.stop(now + 0.1);
-                }
+                try {
+                    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtor) return;
+                    if (!SoundEngine.ctx) SoundEngine.ctx = new AudioCtor();
+                    
+                    const ctx = SoundEngine.ctx;
+                    if (ctx.state === 'suspended') ctx.resume();
+
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain); gain.connect(ctx.destination);
+                    const now = ctx.currentTime;
+                    
+                    if (type === 'success') { 
+                        osc.type = 'sine'; osc.frequency.setValueAtTime(500, now); osc.frequency.exponentialRampToValueAtTime(1000, now + 0.1);
+                        gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                        osc.start(now); osc.stop(now + 0.5);
+                    } else if (type === 'levelup') { 
+                        [440, 554, 659].forEach((f,i) => {
+                            const o=ctx.createOscillator(); const g=ctx.createGain(); o.connect(g); g.connect(ctx.destination);
+                            o.type='triangle'; o.frequency.setValueAtTime(f, now+i*0.1); 
+                            g.gain.setValueAtTime(0.2, now+i*0.1); g.gain.exponentialRampToValueAtTime(0.01, now+1.5);
+                            o.start(now+i*0.1); o.stop(now+1.5);
+                        });
+                    } else { 
+                        osc.frequency.setValueAtTime(300, now); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                        osc.start(now); osc.stop(now + 0.1);
+                    }
+                } catch (e) { console.error(e); }
             }
+        };
+
+        const triggerHaptic = (type) => {
+            if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(type === 'success' ? [10, 30, 10] : 10);
+            SoundEngine.play(type === 'success' ? 'success' : 'click');
         };
 
         // --- DATA ---
@@ -99,19 +139,6 @@
                 aiCoach: "المدرب الذكي", levelUp: "مستوى جديد!", level: "مستوى", 
                 continue: "استلام المكافأة", xp: "نقاط"
             }
-        };
-
-        const LanguageContext = createContext();
-
-        // --- HELPERS ---
-        const storage = {
-            get: (key, def) => { try { return JSON.parse(localStorage.getItem(key)) || def; } catch { return def; } },
-            set: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
-        };
-
-        const triggerHaptic = (type) => {
-            if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(type === 'success' ? [10, 30, 10] : 10);
-            SoundEngine.play(type === 'success' ? 'success' : 'click');
         };
 
         // --- COMPONENTS ---
@@ -207,129 +234,127 @@
             };
 
             return (
-                <LanguageContext.Provider value={{ t, lang }}>
-                    <div dir={isRTL ? 'rtl' : 'ltr'} className="min-h-screen pb-32 text-slate-800 relative select-none">
-                        <Confetti active={showConfetti} />
-                        <div className="blob blob-1"></div><div className="blob blob-2"></div>
+                <div dir={isRTL ? 'rtl' : 'ltr'} className="min-h-screen pb-32 text-slate-800 relative select-none">
+                    <Confetti active={showConfetti} />
+                    <div className="blob blob-1"></div><div className="blob blob-2"></div>
 
-                        {/* Header */}
-                        <header className="px-6 pt-12 pb-4 sticky top-0 z-30 transition-all">
-                            <div className="flex justify-between items-center mb-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="relative">
-                                        <div className="w-14 h-14 rounded-2xl bg-white/80 shadow-lg flex items-center justify-center text-3xl border border-white/60">{user.avatar}</div>
-                                        <div className="absolute -bottom-1 -right-1 bg-black text-white text-[10px] font-bold px-1.5 rounded-md border border-white">{user.level}</div>
-                                    </div>
-                                    <div>
-                                        <h1 className="text-gray-500 text-xs font-bold uppercase tracking-widest">{t.welcome}</h1>
-                                        <h2 className="text-2xl font-black">{user.name}</h2>
-                                    </div>
+                    {/* Header */}
+                    <header className="px-6 pt-12 pb-4 sticky top-0 z-30 transition-all">
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center gap-4">
+                                <div className="relative">
+                                    <div className="w-14 h-14 rounded-2xl bg-white/80 shadow-lg flex items-center justify-center text-3xl border border-white/60">{user.avatar}</div>
+                                    <div className="absolute -bottom-1 -right-1 bg-black text-white text-[10px] font-bold px-1.5 rounded-md border border-white">{user.level}</div>
                                 </div>
-                                <div className="flex gap-3">
-                                    <button onClick={() => {triggerHaptic('click'); setLang(lang==='en'?'ar':'en')}} className="w-12 h-12 rounded-2xl bg-white/80 shadow-sm flex items-center justify-center text-2xl">{lang==='en'?'🇸🇦':'🇺🇸'}</button>
-                                    <button onClick={() => {triggerHaptic('click'); setModal('friends')}} className="w-12 h-12 rounded-2xl bg-white/80 shadow-sm flex items-center justify-center text-2xl relative">
-                                        👥 {friends.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">{friends.length}</span>}
-                                    </button>
+                                <div>
+                                    <h1 className="text-gray-500 text-xs font-bold uppercase tracking-widest">{t.welcome}</h1>
+                                    <h2 className="text-2xl font-black">{user.name}</h2>
                                 </div>
                             </div>
-                            
-                            {/* XP Bar */}
-                            <div className="mb-4 px-1">
-                                <div className="flex justify-between text-xs font-bold text-gray-500 mb-1">
-                                    <span>{t.xp} {user.xp} / {user.level * 100}</span>
-                                    <span>{t.level} {user.level + 1}</span>
-                                </div>
-                                <div className="w-full bg-white/50 h-2 rounded-full overflow-hidden">
-                                    <div className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500" style={{width: `${(user.xp / (user.level * 100)) * 100}%`}}></div>
-                                </div>
+                            <div className="flex gap-3">
+                                <button onClick={() => {triggerHaptic('click'); setLang(lang==='en'?'ar':'en')}} className="w-12 h-12 rounded-2xl bg-white/80 shadow-sm flex items-center justify-center text-2xl">{lang==='en'?'🇸🇦':'🇺🇸'}</button>
+                                <button onClick={() => {triggerHaptic('click'); setModal('friends')}} className="w-12 h-12 rounded-2xl bg-white/80 shadow-sm flex items-center justify-center text-2xl relative">
+                                    👥 {friends.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">{friends.length}</span>}
+                                </button>
                             </div>
-                        </header>
-
-                        {/* Main Content */}
-                        <main className="px-6 space-y-6">
-                            <Card3D className="bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white p-6">
-                                <div className="flex justify-between items-center mb-6">
-                                    <div><p className="text-white/80 font-bold text-xs uppercase">{t.today}</p><h3 className="text-4xl font-black">{progress}%</h3></div>
-                                    <div className="text-4xl">🔥</div>
-                                </div>
-                                <div className="w-full bg-black/20 h-3 rounded-full overflow-hidden"><div className="h-full bg-white transition-all duration-1000" style={{width: `${progress}%`}} /></div>
-                            </Card3D>
-
-                            <div>
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="font-bold text-xl">{t.habits}</h3>
-                                    <button onClick={() => {triggerHaptic('click'); setModal('addHabit')}} className="text-violet-600 font-bold text-sm bg-white px-4 py-2 rounded-full shadow-sm">+ {t.newHabit}</button>
-                                </div>
-                                <div className="space-y-4">
-                                    {habits.map(h => {
-                                        const done = (h.done[today]||0) >= h.goal;
-                                        return (
-                                            <Card3D key={h.id} onClick={() => toggleHabit(h.id)} className={`p-4 flex items-center gap-4 ${done ? 'opacity-60' : ''}`}>
-                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${done ? 'bg-green-400 text-white' : 'bg-white'}`}>{done ? '✓' : h.emoji}</div>
-                                                <div className="flex-1">
-                                                    <h4 className={`font-bold text-lg ${done && 'line-through'}`}>{h.name}</h4>
-                                                    <div className="text-xs font-bold text-orange-500">🔥 {h.streak}</div>
-                                                </div>
-                                            </Card3D>
-                                        )
-                                    })}
-                                    {habits.length === 0 && <div className="text-center py-12 opacity-50"><div className="text-5xl mb-4">🌱</div><p>{t.freeHabits}</p></div>}
-                                </div>
-                            </div>
-                        </main>
-
-                        {/* Nav */}
-                        <nav className="fixed bottom-8 left-6 right-6 glass rounded-3xl p-2 shadow-2xl flex justify-between z-40">
-                            {['🎯','📊','⚙️'].map((icon, i) => <button key={i} onClick={() => {triggerHaptic('click'); setActiveTab(i)}} className={`flex-1 py-4 rounded-2xl text-2xl transition-all ${activeTab===i ? 'bg-slate-800 text-white shadow-xl -translate-y-4' : 'text-slate-400'}`}>{icon}</button>)}
-                        </nav>
-
-                        {/* Modals */}
-                        {modal === 'addHabit' && (
-                            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end justify-center" onClick={() => setModal(null)}>
-                                <div className="bg-white w-full max-w-md rounded-t-[32px] p-8 animate-pop" onClick={e=>e.stopPropagation()}>
-                                    <h2 className="text-2xl font-black mb-6">{t.newHabit}</h2>
-                                    <input id="inputHabit" placeholder={t.habitName} className="w-full p-4 bg-slate-100 rounded-2xl mb-4 font-bold outline-none" autoFocus />
-                                    <button onClick={() => addHabit(document.getElementById('inputHabit').value)} className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold shadow-lg">{t.create}</button>
-                                </div>
-                            </div>
-                        )}
-
-                        {modal === 'friends' && (
-                            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setModal(null)}>
-                                <div className="bg-white w-full max-w-md rounded-[32px] p-6 h-[70vh] flex flex-col" onClick={e=>e.stopPropagation()}>
-                                    <div className="bg-slate-900 text-white p-6 rounded-3xl mb-6">
-                                        <p className="text-xs font-bold uppercase mb-1">{t.yourId}</p>
-                                        <div className="flex justify-between items-center"><code className="text-2xl font-mono font-bold">{user.id}</code><button onClick={()=>{navigator.clipboard.writeText(user.id); triggerHaptic('success')}} className="bg-white/20 px-3 py-1 rounded-lg text-xs">{t.copy}</button></div>
-                                    </div>
-                                    <div className="flex gap-2 mb-4">
-                                        <input id="friendId" placeholder="Friend ID" className="flex-1 p-3 bg-slate-100 rounded-xl font-bold" />
-                                        <button onClick={()=>addFriend(document.getElementById('friendId').value)} className="bg-violet-600 text-white px-6 rounded-xl font-bold">+</button>
-                                    </div>
-                                    <div className="overflow-y-auto flex-1 space-y-2">
-                                        {friends.map(f => (
-                                            <div key={f.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                                                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">{f.avatar}</div>
-                                                <div className="flex-1"><h4 className="font-bold">{f.name}</h4><p className="text-xs text-orange-500">Lv.{f.level}</p></div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        </div>
                         
-                        {modal === 'levelUp' && (
-                            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-pop">
-                                <div className="bg-white w-full max-w-sm rounded-[32px] p-8 text-center relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-yellow-400 to-orange-500"></div>
-                                    <div className="text-8xl mb-4 animate-float">🎉</div>
-                                    <h2 className="text-3xl font-black text-slate-800 mb-2">{t.levelUp}</h2>
-                                    <p className="text-slate-500 mb-6 font-bold">{t.level} {user.level}</p>
-                                    <button onClick={() => setModal(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl active:scale-95 transition-transform">{t.continue}</button>
+                        {/* XP Bar */}
+                        <div className="mb-4 px-1">
+                            <div className="flex justify-between text-xs font-bold text-gray-500 mb-1">
+                                <span>{t.xp} {user.xp} / {user.level * 100}</span>
+                                <span>{t.level} {user.level + 1}</span>
+                            </div>
+                            <div className="w-full bg-white/50 h-2 rounded-full overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500" style={{width: `${(user.xp / (user.level * 100)) * 100}%`}}></div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Main Content */}
+                    <main className="px-6 space-y-6">
+                        <Card3D className="bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white p-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <div><p className="text-white/80 font-bold text-xs uppercase">{t.today}</p><h3 className="text-4xl font-black">{progress}%</h3></div>
+                                <div className="text-4xl">🔥</div>
+                            </div>
+                            <div className="w-full bg-black/20 h-3 rounded-full overflow-hidden"><div className="h-full bg-white transition-all duration-1000" style={{width: `${progress}%`}} /></div>
+                        </Card3D>
+
+                        <div>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="font-bold text-xl">{t.habits}</h3>
+                                <button onClick={() => {triggerHaptic('click'); setModal('addHabit')}} className="text-violet-600 font-bold text-sm bg-white px-4 py-2 rounded-full shadow-sm">+ {t.newHabit}</button>
+                            </div>
+                            <div className="space-y-4">
+                                {habits.map(h => {
+                                    const done = (h.done[today]||0) >= h.goal;
+                                    return (
+                                        <Card3D key={h.id} onClick={() => toggleHabit(h.id)} className={`p-4 flex items-center gap-4 ${done ? 'opacity-60' : ''}`}>
+                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${done ? 'bg-green-400 text-white' : 'bg-white'}`}>{done ? '✓' : h.emoji}</div>
+                                            <div className="flex-1">
+                                                <h4 className={`font-bold text-lg ${done && 'line-through'}`}>{h.name}</h4>
+                                                <div className="text-xs font-bold text-orange-500">🔥 {h.streak}</div>
+                                            </div>
+                                        </Card3D>
+                                    )
+                                })}
+                                {habits.length === 0 && <div className="text-center py-12 opacity-50"><div className="text-5xl mb-4">🌱</div><p>{t.freeHabits}</p></div>}
+                            </div>
+                        </div>
+                    </main>
+
+                    {/* Nav */}
+                    <nav className="fixed bottom-8 left-6 right-6 glass rounded-3xl p-2 shadow-2xl flex justify-between z-40">
+                        {['🎯','📊','⚙️'].map((icon, i) => <button key={i} onClick={() => {triggerHaptic('click'); setActiveTab(i)}} className={`flex-1 py-4 rounded-2xl text-2xl transition-all ${activeTab===i ? 'bg-slate-800 text-white shadow-xl -translate-y-4' : 'text-slate-400'}`}>{icon}</button>)}
+                    </nav>
+
+                    {/* Modals */}
+                    {modal === 'addHabit' && (
+                        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end justify-center" onClick={() => setModal(null)}>
+                            <div className="bg-white w-full max-w-md rounded-t-[32px] p-8 animate-pop" onClick={e=>e.stopPropagation()}>
+                                <h2 className="text-2xl font-black mb-6">{t.newHabit}</h2>
+                                <input id="inputHabit" placeholder={t.habitName} className="w-full p-4 bg-slate-100 rounded-2xl mb-4 font-bold outline-none" autoFocus />
+                                <button onClick={() => addHabit(document.getElementById('inputHabit').value)} className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold shadow-lg">{t.create}</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {modal === 'friends' && (
+                        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setModal(null)}>
+                            <div className="bg-white w-full max-w-md rounded-[32px] p-6 h-[70vh] flex flex-col" onClick={e=>e.stopPropagation()}>
+                                <div className="bg-slate-900 text-white p-6 rounded-3xl mb-6">
+                                    <p className="text-xs font-bold uppercase mb-1">{t.yourId}</p>
+                                    <div className="flex justify-between items-center"><code className="text-2xl font-mono font-bold">{user.id}</code><button onClick={()=>{navigator.clipboard.writeText(user.id); triggerHaptic('success')}} className="bg-white/20 px-3 py-1 rounded-lg text-xs">{t.copy}</button></div>
+                                </div>
+                                <div className="flex gap-2 mb-4">
+                                    <input id="friendId" placeholder="Friend ID" className="flex-1 p-3 bg-slate-100 rounded-xl font-bold" />
+                                    <button onClick={()=>addFriend(document.getElementById('friendId').value)} className="bg-violet-600 text-white px-6 rounded-xl font-bold">+</button>
+                                </div>
+                                <div className="overflow-y-auto flex-1 space-y-2">
+                                    {friends.map(f => (
+                                        <div key={f.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                                            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">{f.avatar}</div>
+                                            <div className="flex-1"><h4 className="font-bold">{f.name}</h4><p className="text-xs text-orange-500">Lv.{f.level}</p></div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        )}
-                    </div>
-                </LanguageContext.Provider>
+                        </div>
+                    )}
+                    
+                    {modal === 'levelUp' && (
+                        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-pop">
+                            <div className="bg-white w-full max-w-sm rounded-[32px] p-8 text-center relative overflow-hidden">
+                                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-yellow-400 to-orange-500"></div>
+                                <div className="text-8xl mb-4 animate-float">🎉</div>
+                                <h2 className="text-3xl font-black text-slate-800 mb-2">{t.levelUp}</h2>
+                                <p className="text-slate-500 mb-6 font-bold">{t.level} {user.level}</p>
+                                <button onClick={() => setModal(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl active:scale-95 transition-transform">{t.continue}</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
             );
         }
 
