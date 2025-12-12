@@ -6,6 +6,12 @@
     <meta name="theme-color" content="#7c3aed">
     <title>Momentum MAX</title>
     
+    <script>
+        window.onerror = function(msg, url, line) {
+            document.body.innerHTML = '<div style="background:#000; color:#ff5555; padding:20px; font-family:sans-serif;"><h1>⚠️ App Error</h1><p>'+msg+'</p><p>Line: '+line+'</p></div>';
+        };
+    </script>
+
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -13,85 +19,53 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
 
     <style>
+        /* CORE ENGINE */
         :root { --primary: #7c3aed; }
         * { font-family: 'Outfit', sans-serif; -webkit-tap-highlight-color: transparent; box-sizing: border-box; touch-action: manipulation; user-select: none; }
         [dir="rtl"] * { font-family: 'Tajawal', sans-serif; }
         body { background-color: #f0f2f5; overscroll-behavior-y: none; perspective: 1000px; overflow-x: hidden; }
         
-        /* 3D Engine */
+        /* 3D & Glass */
         .card-3d-wrapper { perspective: 1000px; transform-style: preserve-3d; }
         .card-3d { transition: transform 0.1s, box-shadow 0.3s; transform-style: preserve-3d; background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7)); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 10px 30px -10px rgba(0,0,0,0.1); }
         .card-3d:active { transform: scale(0.96) rotateX(2deg); }
+        .glass-panel { background: rgba(255,255,255,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.3); }
         
         /* Animations */
         @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
         @keyframes pop { 0% { transform: scale(0.9); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        @keyframes confetti { 0% { transform: translateY(-100vh); opacity: 1; } 100% { transform: translateY(100vh); opacity: 0; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .animate-float { animation: float 6s ease-in-out infinite; }
         .animate-pop { animation: pop 0.3s ease-out; }
+        .animate-slide { animation: slideUp 0.4s ease-out; }
         .confetti { position: fixed; width: 8px; height: 8px; z-index: 60; pointer-events: none; }
         
         /* Background */
         .blob { position: fixed; filter: blur(60px); z-index: -1; opacity: 0.5; animation: float 8s infinite; }
         .blob-1 { top: -10%; right: -10%; width: 200px; height: 200px; background: #c084fc; }
         .blob-2 { bottom: -10%; left: -10%; width: 200px; height: 200px; background: #60a5fa; animation-delay: 2s; }
-        .glass { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.5); }
-
-        /* Emergency Reset Button */
-        #emergency-reset { position: fixed; top: 10px; left: 10px; z-index: 9999; background: red; color: white; padding: 10px; border-radius: 8px; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
-    <button id="emergency-reset" onclick="localStorage.clear(); window.location.reload();">⚠️ RESET APP</button>
-    
     <div id="root"></div>
-
-    <script>
-        // Show emergency button if app takes too long to load
-        setTimeout(() => {
-            if (!document.querySelector('.card-3d')) {
-                document.getElementById('emergency-reset').style.display = 'block';
-            }
-        }, 3000);
-    </script>
 
     <script type="text/babel">
         const { useState, useEffect, useCallback, createContext, useContext, useRef } = React;
 
-        // --- 1. SAFE STORAGE ENGINE (Prevents Crashes) ---
-        const APP_VERSION = '4.0'; // Changing this forces a data reset if structure changes
+        // --- 1. ENGINES ---
+        const APP_VERSION = '4.1';
         const storage = {
-            get: (key, def) => { 
-                try { 
-                    const stored = localStorage.getItem(key);
-                    const version = localStorage.getItem('app_version');
-                    
-                    // If version mismatch, return default (prevents crash)
-                    if (version !== APP_VERSION) return def; 
-                    
-                    return stored ? JSON.parse(stored) : def; 
-                } catch { return def; } 
-            },
-            set: (key, val) => { 
-                try { 
-                    localStorage.setItem(key, JSON.stringify(val)); 
-                    localStorage.setItem('app_version', APP_VERSION);
-                } catch {} 
-            }
+            get: (key, def) => { try { return JSON.parse(localStorage.getItem(key)) || def; } catch { return def; } },
+            set: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
         };
 
-        // --- 2. AUDIO ENGINE (Mobile Safe) ---
         const SoundEngine = {
-            ctx: null,
             play: (type) => {
+                if (!storage.get('soundEnabled', true)) return;
                 try {
                     const AudioCtor = window.AudioContext || window.webkitAudioContext;
                     if (!AudioCtor) return;
-                    if (!SoundEngine.ctx) SoundEngine.ctx = new AudioCtor();
-                    
-                    const ctx = SoundEngine.ctx;
-                    if (ctx.state === 'suspended') ctx.resume();
-
+                    const ctx = new AudioCtor();
                     const osc = ctx.createOscillator();
                     const gain = ctx.createGain();
                     osc.connect(gain); gain.connect(ctx.destination);
@@ -112,40 +86,44 @@
                         osc.frequency.setValueAtTime(300, now); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
                         osc.start(now); osc.stop(now + 0.1);
                     }
-                } catch (e) { console.error(e); }
+                } catch (e) {}
             }
         };
 
         const triggerHaptic = (type) => {
-            if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(type === 'success' ? [10, 30, 10] : 10);
+            if (storage.get('hapticsEnabled', true) && navigator.vibrate) navigator.vibrate(type === 'success' ? [10, 30, 10] : 10);
             SoundEngine.play(type === 'success' ? 'success' : 'click');
         };
 
-        // --- DATA ---
         const translations = {
             en: {
-                appName: "Momentum MAX", welcome: "Good Morning", today: "Today's Focus", 
-                habits: "Habits", newHabit: "New Habit", create: "Create", 
-                friends: "Friends", add: "Add Friend", yourId: "Your ID", 
-                copy: "Copy", freeHabits: "No habits yet. Start now!",
-                aiCoach: "AI Coach", levelUp: "LEVEL UP!", level: "Level", 
-                continue: "Claim Reward", xp: "XP"
+                welcome: "Good Morning", today: "Today's Focus", habits: "Habits", 
+                newHabit: "New Habit", create: "Create", friends: "Friends", 
+                add: "Add Friend", yourId: "Your ID", copy: "Copy", 
+                freeHabits: "No habits yet. Start now!", aiCoach: "AI Coach", 
+                levelUp: "LEVEL UP!", level: "Level", continue: "Claim Reward", 
+                xp: "XP", analytics: "Analytics", settings: "Settings",
+                last7: "Last 7 Days", completion: "Completion Rate", 
+                perfect: "Perfect Days", streak: "Current Streak", 
+                sound: "Sound Effects", haptics: "Haptic Feedback", 
+                reset: "Reset Data", name: "Your Name"
             },
             ar: {
-                appName: "مومنتم ماكس", welcome: "صباح الخير", today: "تركيز اليوم",
-                habits: "العادات", newHabit: "عادة جديدة", create: "إنشاء",
-                friends: "الأصدقاء", add: "إضافة", yourId: "معرفك",
-                copy: "نسخ", freeHabits: "لا توجد عادات. ابدأ الآن!",
-                aiCoach: "المدرب الذكي", levelUp: "مستوى جديد!", level: "مستوى", 
-                continue: "استلام المكافأة", xp: "نقاط"
+                welcome: "صباح الخير", today: "تركيز اليوم", habits: "العادات", 
+                newHabit: "عادة جديدة", create: "إنشاء", friends: "الأصدقاء", 
+                add: "إضافة", yourId: "معرفك", copy: "نسخ", 
+                freeHabits: "لا توجد عادات. ابدأ الآن!", aiCoach: "المدرب الذكي", 
+                levelUp: "مستوى جديد!", level: "مستوى", continue: "استلام المكافأة", 
+                xp: "نقاط", analytics: "التحليلات", settings: "الإعدادات",
+                last7: "آخر 7 أيام", completion: "معدل الإنجاز", 
+                perfect: "أيام مثالية", streak: "السلسلة الحالية", 
+                sound: "المؤثرات الصوتية", haptics: "الاهتزاز", 
+                reset: "إعادة تعيين", name: "اسمك"
             }
         };
 
         // --- COMPONENTS ---
-        const Confetti = ({ active }) => {
-            if (!active) return null;
-            return <div className="fixed inset-0 pointer-events-none z-50">{[...Array(40)].map((_, i) => <div key={i} className="confetti" style={{left: Math.random()*100+'%', background: ['#8b5cf6', '#f472b6', '#34d399'][Math.floor(Math.random()*3)], animation: `confetti ${2+Math.random()}s linear`}} />)}</div>;
-        };
+        const Confetti = ({ active }) => active ? <div className="fixed inset-0 pointer-events-none z-50">{[...Array(40)].map((_, i) => <div key={i} className="confetti" style={{left: Math.random()*100+'%', background: ['#8b5cf6', '#f472b6', '#34d399'][Math.floor(Math.random()*3)], animation: `confetti ${2+Math.random()}s linear`}} />)}</div> : null;
 
         const Card3D = ({ children, onClick, className = "" }) => {
             const ref = useRef(null);
@@ -156,14 +134,7 @@
                 const y = (e.clientY - rect.top - rect.height/2) / -20;
                 ref.current.style.transform = `perspective(1000px) rotateX(${y}deg) rotateY(${x}deg)`;
             };
-            return (
-                <div className="card-3d-wrapper py-2">
-                    <div ref={ref} className={`card-3d relative overflow-hidden rounded-3xl cursor-pointer ${className}`} 
-                         onMouseMove={handleMove} onMouseLeave={(e) => e.currentTarget.style.transform = 'none'} onClick={onClick}>
-                        {children}
-                    </div>
-                </div>
-            );
+            return <div className="card-3d-wrapper py-2"><div ref={ref} className={`card-3d relative overflow-hidden rounded-3xl cursor-pointer ${className}`} onMouseMove={handleMove} onMouseLeave={(e)=>e.currentTarget.style.transform='none'} onClick={onClick}>{children}</div></div>;
         };
 
         // --- MAIN APP ---
@@ -172,54 +143,41 @@
             const t = translations[lang];
             const isRTL = lang === 'ar';
             
-            const [user, setUser] = useState(() => storage.get('user', { 
-                id: 'MOM'+Math.floor(Math.random()*10000), name: 'Champion', avatar: '🦁', level: 1, xp: 0 
-            }));
+            const [user, setUser] = useState(() => storage.get('user', { id: 'MOM'+Math.floor(Math.random()*10000), name: 'Champion', avatar: '🦁', level: 1, xp: 0 }));
             const [habits, setHabits] = useState(() => storage.get('habits', []));
             const [friends, setFriends] = useState(() => storage.get('friends', []));
+            const [settings, setSettings] = useState(() => storage.get('settings', { sound: true, haptics: true }));
+            
             const [showConfetti, setShowConfetti] = useState(false);
             const [activeTab, setActiveTab] = useState('habits');
             const [modal, setModal] = useState(null); 
 
-            useEffect(() => { storage.set('habits', habits); storage.set('user', user); storage.set('friends', friends); storage.set('lang', lang); }, [habits, user, friends, lang]);
+            useEffect(() => { storage.set('habits', habits); storage.set('user', user); storage.set('friends', friends); storage.set('lang', lang); storage.set('settings', settings); storage.set('soundEnabled', settings.sound); storage.set('hapticsEnabled', settings.haptics); }, [habits, user, friends, lang, settings]);
 
-            // Logic
             const today = new Date().toISOString().split('T')[0];
             const progress = habits.length ? Math.round((habits.filter(h => (h.done?.[today]||0) >= h.goal).length / habits.length) * 100) : 0;
             const aiMsg = progress === 100 ? "Perfect Day!" : progress > 50 ? "Keep Pushing!" : "Start Small.";
 
+            // --- ACTIONS ---
             const addHabit = (name) => {
                 if(!name) return;
                 setHabits([...habits, { id: Date.now(), name, goal: 1, done: {}, emoji: '⚡', streak: 0 }]);
                 setModal(null); triggerHaptic('success');
             };
 
-            const checkLevelUp = (currentXp, currentLevel) => {
-                const requiredXp = currentLevel * 100;
-                if (currentXp >= requiredXp) {
-                    const leftoverXp = currentXp - requiredXp;
-                    setUser(u => ({ ...u, xp: leftoverXp, level: u.level + 1 }));
-                    setModal('levelUp');
-                    SoundEngine.play('levelup');
-                    setShowConfetti(true);
-                    setTimeout(() => setShowConfetti(false), 4000);
-                } else {
-                    setUser(u => ({ ...u, xp: currentXp }));
-                }
-            };
-
             const toggleHabit = (id) => {
                 triggerHaptic('success');
                 setHabits(habits.map(h => {
                     if(h.id === id) {
-                        const currentVal = (h.done[today] || 0);
-                        if (currentVal >= h.goal) return h; 
-
-                        const val = currentVal + 1;
-                        if (val >= h.goal) { 
-                            checkLevelUp(user.xp + 25, user.level);
-                            setShowConfetti(true); 
-                            setTimeout(() => setShowConfetti(false), 2000); 
+                        const val = (h.done[today] || 0) + 1;
+                        if(val >= h.goal) { 
+                            if(user.xp + 25 >= user.level * 100) {
+                                setUser(u => ({ ...u, xp: 0, level: u.level + 1 }));
+                                setModal('levelUp'); SoundEngine.play('levelup'); setShowConfetti(true); setTimeout(() => setShowConfetti(false), 4000);
+                            } else {
+                                setUser(u => ({ ...u, xp: u.xp + 25 }));
+                            }
+                            setShowConfetti(true); setTimeout(() => setShowConfetti(false), 2000); 
                         }
                         return { ...h, done: { ...h.done, [today]: val }, streak: val >= h.goal ? h.streak + 1 : h.streak };
                     }
@@ -231,6 +189,19 @@
                 if(!id || id === user.id || friends.find(f => f.id === id)) return;
                 setFriends([...friends, { id, name: 'Friend '+id.slice(-4), avatar: '🦊', level: Math.floor(Math.random()*10)+1 }]);
                 triggerHaptic('success');
+            };
+
+            // --- ANALYTICS DATA GENERATOR ---
+            const getAnalyticsData = () => {
+                const days = [];
+                for(let i=6; i>=0; i--) {
+                    const d = new Date(); d.setDate(d.getDate() - i);
+                    const dateStr = d.toISOString().split('T')[0];
+                    const total = habits.length;
+                    const done = habits.filter(h => (h.done?.[dateStr]||0) >= h.goal).length;
+                    days.push({ day: d.toLocaleDateString(lang, {weekday:'short'}), pct: total ? (done/total)*100 : 0 });
+                }
+                return days;
             };
 
             return (
@@ -258,55 +229,100 @@
                                 </button>
                             </div>
                         </div>
-                        
                         {/* XP Bar */}
                         <div className="mb-4 px-1">
-                            <div className="flex justify-between text-xs font-bold text-gray-500 mb-1">
-                                <span>{t.xp} {user.xp} / {user.level * 100}</span>
-                                <span>{t.level} {user.level + 1}</span>
-                            </div>
-                            <div className="w-full bg-white/50 h-2 rounded-full overflow-hidden">
-                                    <div className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500" style={{width: `${(user.xp / (user.level * 100)) * 100}%`}}></div>
-                            </div>
+                            <div className="flex justify-between text-xs font-bold text-gray-500 mb-1"><span>{t.xp} {user.xp}/{user.level*100}</span><span>{t.level} {user.level+1}</span></div>
+                            <div className="w-full bg-white/50 h-2 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500" style={{width: `${(user.xp/(user.level*100))*100}%`}}></div></div>
                         </div>
                     </header>
 
-                    {/* Main Content */}
-                    <main className="px-6 space-y-6">
-                        <Card3D className="bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white p-6">
-                            <div className="flex justify-between items-center mb-6">
-                                <div><p className="text-white/80 font-bold text-xs uppercase">{t.today}</p><h3 className="text-4xl font-black">{progress}%</h3></div>
-                                <div className="text-4xl">🔥</div>
-                            </div>
-                            <div className="w-full bg-black/20 h-3 rounded-full overflow-hidden"><div className="h-full bg-white transition-all duration-1000" style={{width: `${progress}%`}} /></div>
-                        </Card3D>
+                    <main className="px-6 space-y-6 animate-slide">
+                        {/* VIEW: HABITS */}
+                        {activeTab === 'habits' && (
+                            <>
+                                <Card3D className="bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white p-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <div><p className="text-white/80 font-bold text-xs uppercase">{t.today}</p><h3 className="text-4xl font-black">{progress}%</h3></div>
+                                        <div className="text-4xl">🔥</div>
+                                    </div>
+                                    <div className="w-full bg-black/20 h-3 rounded-full overflow-hidden"><div className="h-full bg-white transition-all duration-1000" style={{width: `${progress}%`}} /></div>
+                                </Card3D>
 
-                        <div>
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="font-bold text-xl">{t.habits}</h3>
-                                <button onClick={() => {triggerHaptic('click'); setModal('addHabit')}} className="text-violet-600 font-bold text-sm bg-white px-4 py-2 rounded-full shadow-sm">+ {t.newHabit}</button>
-                            </div>
-                            <div className="space-y-4">
-                                {habits.map(h => {
-                                    const done = (h.done[today]||0) >= h.goal;
-                                    return (
-                                        <Card3D key={h.id} onClick={() => toggleHabit(h.id)} className={`p-4 flex items-center gap-4 ${done ? 'opacity-60' : ''}`}>
-                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${done ? 'bg-green-400 text-white' : 'bg-white'}`}>{done ? '✓' : h.emoji}</div>
-                                            <div className="flex-1">
-                                                <h4 className={`font-bold text-lg ${done && 'line-through'}`}>{h.name}</h4>
-                                                <div className="text-xs font-bold text-orange-500">🔥 {h.streak}</div>
+                                <div>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="font-bold text-xl">{t.habits}</h3>
+                                        <button onClick={() => {triggerHaptic('click'); setModal('addHabit')}} className="text-violet-600 font-bold text-sm bg-white px-4 py-2 rounded-full shadow-sm">+ {t.newHabit}</button>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {habits.map(h => {
+                                            const done = (h.done[today]||0) >= h.goal;
+                                            return (
+                                                <Card3D key={h.id} onClick={() => toggleHabit(h.id)} className={`p-4 flex items-center gap-4 ${done ? 'opacity-60' : ''}`}>
+                                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${done ? 'bg-green-400 text-white' : 'bg-white'}`}>{done ? '✓' : h.emoji}</div>
+                                                    <div className="flex-1"><h4 className={`font-bold text-lg ${done && 'line-through'}`}>{h.name}</h4><div className="text-xs font-bold text-orange-500">🔥 {h.streak}</div></div>
+                                                </Card3D>
+                                            )
+                                        })}
+                                        {habits.length === 0 && <div className="text-center py-12 opacity-50"><div className="text-5xl mb-4">🌱</div><p>{t.freeHabits}</p></div>}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* VIEW: ANALYTICS */}
+                        {activeTab === 'analytics' && (
+                            <div className="space-y-6">
+                                <h2 className="text-2xl font-black text-slate-800">{t.analytics}</h2>
+                                <Card3D className="p-6 bg-white">
+                                    <h3 className="text-sm font-bold text-slate-400 uppercase mb-4">{t.last7}</h3>
+                                    <div className="flex items-end justify-between h-32 gap-2">
+                                        {getAnalyticsData().map((d, i) => (
+                                            <div key={i} className="flex-1 flex flex-col justify-end items-center gap-2">
+                                                <div className="w-full bg-violet-100 rounded-t-lg relative group transition-all hover:bg-violet-200" style={{height: `${Math.max(10, d.pct)}%`}}>
+                                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">{Math.round(d.pct)}%</div>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-400">{d.day}</span>
                                             </div>
-                                        </Card3D>
-                                    )
-                                })}
-                                {habits.length === 0 && <div className="text-center py-12 opacity-50"><div className="text-5xl mb-4">🌱</div><p>{t.freeHabits}</p></div>}
+                                        ))}
+                                    </div>
+                                </Card3D>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white p-4 rounded-3xl shadow-sm border border-white/50 text-center"><p className="text-3xl font-black text-violet-600">{Math.max(...habits.map(h=>h.streak), 0)}</p><p className="text-xs text-slate-400 font-bold uppercase">{t.streak}</p></div>
+                                    <div className="bg-white p-4 rounded-3xl shadow-sm border border-white/50 text-center"><p className="text-3xl font-black text-fuchsia-600">{user.level}</p><p className="text-xs text-slate-400 font-bold uppercase">{t.level}</p></div>
+                                </div>
                             </div>
-                        </div>
+                        )}
+
+                        {/* VIEW: SETTINGS */}
+                        {activeTab === 'settings' && (
+                            <div className="space-y-6">
+                                <h2 className="text-2xl font-black text-slate-800">{t.settings}</h2>
+                                <div className="bg-white p-6 rounded-3xl shadow-sm border border-white/50 space-y-6">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-400 uppercase">{t.name}</label>
+                                        <input value={user.name} onChange={(e)=>setUser({...user, name: e.target.value})} className="w-full p-3 mt-2 bg-slate-100 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 ring-violet-500" />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-bold text-slate-700">{t.sound}</span>
+                                        <button onClick={()=>setSettings({...settings, sound: !settings.sound})} className={`w-12 h-7 rounded-full transition-colors relative ${settings.sound ? 'bg-violet-500' : 'bg-slate-200'}`}>
+                                            <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-1 transition-transform ${settings.sound ? 'left-6' : 'left-1'}`} />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-bold text-slate-700">{t.haptics}</span>
+                                        <button onClick={()=>setSettings({...settings, haptics: !settings.haptics})} className={`w-12 h-7 rounded-full transition-colors relative ${settings.haptics ? 'bg-violet-500' : 'bg-slate-200'}`}>
+                                            <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-1 transition-transform ${settings.haptics ? 'left-6' : 'left-1'}`} />
+                                        </button>
+                                    </div>
+                                    <button onClick={()=>{if(confirm('Reset all data?')) { localStorage.clear(); window.location.reload(); }}} className="w-full py-3 bg-red-50 text-red-500 font-bold rounded-xl mt-4">{t.reset}</button>
+                                </div>
+                            </div>
+                        )}
                     </main>
 
                     {/* Nav */}
                     <nav className="fixed bottom-8 left-6 right-6 glass rounded-3xl p-2 shadow-2xl flex justify-between z-40">
-                        {['🎯','📊','⚙️'].map((icon, i) => <button key={i} onClick={() => {triggerHaptic('click'); setActiveTab(i)}} className={`flex-1 py-4 rounded-2xl text-2xl transition-all ${activeTab===i ? 'bg-slate-800 text-white shadow-xl -translate-y-4' : 'text-slate-400'}`}>{icon}</button>)}
+                        {['🎯','📊','⚙️'].map((icon, i) => <button key={i} onClick={() => {triggerHaptic('click'); setActiveTab(i === 0 ? 'habits' : i === 1 ? 'analytics' : 'settings')}} className={`flex-1 py-4 rounded-2xl text-2xl transition-all ${(i===0 && activeTab==='habits') || (i===1 && activeTab==='analytics') || (i===2 && activeTab==='settings') ? 'bg-slate-800 text-white shadow-xl -translate-y-4' : 'text-slate-400'}`}>{icon}</button>)}
                     </nav>
 
                     {/* Modals */}
